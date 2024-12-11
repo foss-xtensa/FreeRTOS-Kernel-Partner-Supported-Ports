@@ -30,8 +30,7 @@
 #include "xtensa_rtos.h"
 #include "asm-offsets.h"
 #include "portmacro.h"
-
-    .extern pxCurrentTCB
+#include "xtensa_asm.h"
 
 
 /*
@@ -56,6 +55,7 @@ port_yield_flag:
 #else
     .text
 #endif
+
 
 /*
 *******************************************************************************
@@ -126,7 +126,7 @@ _frxt_int_enter:
     s32i    a2,  a3, 0                  /* save nesting count              */
     bnei    a2,  1, .Lnested            /* !=0 before incr, so nested      */
 
-    movi    a2,  pxCurrentTCB
+    pxctcb  a2,  a3                     /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a2,  a2, 0                  /* a2 = current TCB                */
     beqz    a2,  1f
     s32i    a1,  a2, TCB_TOP_OF_STACK_OFF   /* pxCurrentTCB->pxTopOfStack = SP */
@@ -171,7 +171,7 @@ _frxt_int_exit:
     s32i    a2,  a3, 0                  /* save nesting count              */
     bnez    a2,  .Lnesting              /* !=0 after decr so still nested  */
 
-    movi    a2,  pxCurrentTCB
+    pxctcb  a2,  a3                     /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a2,  a2, 0                  /* a2 = current TCB                */
     beqz    a2,  1f                     /* no task ? go to dispatcher      */
     l32i    a1,  a2, TCB_TOP_OF_STACK_OFF         /* SP = pxCurrentTCB->pxTopOfStack */
@@ -273,9 +273,9 @@ _frxt_dispatch:
 
 #ifdef __XTENSA_CALL0_ABI__
     call0   vTaskSwitchContext  // Get next TCB to resume
-    movi    a2, pxCurrentTCB
+    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
 #else
-    movi    a2, pxCurrentTCB
+    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     call8   vTaskSwitchContext  // Get next TCB to resume
 #endif
 
@@ -297,9 +297,9 @@ _frxt_dispatch:
 #if XCHAL_HAVE_XEA2
     #ifdef __XTENSA_CALL0_ABI__
     call0   vTaskSwitchContext  // Get next TCB to resume
-    movi    a2, pxCurrentTCB
+    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     #else
-    movi    a2, pxCurrentTCB
+    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     call4   vTaskSwitchContext  // Get next TCB to resume
     #endif
     l32i    a3,  a2, 0
@@ -351,7 +351,7 @@ skip_lowering_priv:
 
     #if XCHAL_CP_NUM > 0
     /* Restore CPENABLE from task's co-processor save area. */
-    movi    a3, pxCurrentTCB
+    pxctcb  a3, a2                          /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a3, a3, 0
     l32i    a2, a3, TCB_END_OF_STACK_OFF          /* a2 = base of coproc save area */
     l16ui   a3, a2, XT_CPENABLE         /* a3 = saved CPENABLE value     */
@@ -439,7 +439,7 @@ vPortYield:
     movi    a8, PS_STACK_MASK | PS_DI_MASK  /* disable interrupts.          */
     xps     a2, a8
 
-    movi    a3, pxCurrentTCB
+    pxctcb  a3, a4                          /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a4, a3, 0                       /* a4 = pxCurrentTCB            */
 
 #if XCHAL_CP_NUM > 0
@@ -525,7 +525,7 @@ vPortYield:
     call0   _xt_coproc_savecs
     #endif
 
-    movi    a2,  pxCurrentTCB
+    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     movi    a3,  0
     l32i    a2,  a2, 0                  /* a2 = pxCurrentTCB                */
     s32i    a3,  sp, XT_STK_EXIT        /* 0 to flag as solicited frame     */
@@ -574,7 +574,7 @@ vPortYieldFromInt:
 
 #if XCHAL_CP_NUM > 0
     /* Save CPENABLE in task's co-processor save area, and clear CPENABLE.  */
-    movi    a3, pxCurrentTCB            /* cp_state =                       */
+    pxctcb  a3, a2                      /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a3, a3, 0
     l32i    a2, a3, TCB_END_OF_STACK_OFF
 
@@ -610,7 +610,7 @@ _xt_task_start:
 
 #if XCHAL_HAVE_XEA3
     /* On entry, a8 = task entry point, a9 = top of stack / coproc save area */
-    movi    a0, pxCurrentTCB
+    pxctcb  a0, a3                          /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a0, a0, 0
     s32i    a9, a0, TCB_END_OF_STACK_OFF    /* TCB->pxEndOfStack = CP save area */
     movi    a0, 0                           /* terminate call stack for gdb     */
@@ -622,7 +622,7 @@ _xt_task_start:
     wsr     a0, PS
     l32i    a0, sp, XT_STK_PC               /* retrieve interruptee's PC        */
     wsr     a0, EPC_1
-    movi    a3, pxCurrentTCB
+    pxctcb  a3, a0                          /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a3, a3, 0
     l32i    a0, sp, XT_STK_A0               /* retrieve interruptee's A0        */
     l32i    sp, sp, XT_STK_A1               /* remove interrupt stack frame     */
@@ -650,7 +650,7 @@ _xt_task_start_user:
 #endif
 
     /* On entry, a8 = task entry point, a9 = top of stack / coproc save area */
-    movi    a0, pxCurrentTCB
+    pxctcb  a0, a3                          /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a0, a0, 0
     s32i    a9, a0, TCB_END_OF_STACK_OFF    /* TCB->pxEndOfStack = CP save area */
     rsr     a0, PS
@@ -671,6 +671,7 @@ _xt_task_start_user:
 * May only be called when a task is running, not within an interrupt handler (returns 0 in that case).
 * May only be called from assembly code by the 'call0' instruction. Does NOT obey ABI conventions.
 * Returns in a15 a pointer to the base of the co-processor state save area for the current task.
+* May trash a8, which is already trashed by all callers in xtensa_coproc_handler.S.
 * See the detailed description of the XT_RTOS_ENTER macro in xtensa_rtos.h.
 *
 **********************************************************************************************************
@@ -689,7 +690,7 @@ _xt_task_coproc_state:
     movi    a15, port_interruptNesting  /* && port_interruptNesting == 0                */
     l32i    a15, a15, 0
     bnez    a15, 1f
-    movi    a15, pxCurrentTCB
+    pxctcb  a15, a8                         /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a15, a15, 0                 /* && pxCurrentTCB != 0) {                      */
     beqz    a15, 2f
     l32i    a15, a15, TCB_END_OF_STACK_OFF        /* a15 = pxCurrentTCB->pxEndOfStack             */

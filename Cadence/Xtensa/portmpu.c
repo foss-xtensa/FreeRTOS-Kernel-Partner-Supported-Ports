@@ -408,7 +408,6 @@ prvSetupMPU(void)
 }
 
 typedef void TCB_t;
-extern volatile TCB_t * volatile pxCurrentTCB;
 
 static void PRIVILEGED_FUNCTION
 init_private_mpu_regions(const struct xMEMORY_REGION * const xRegions,

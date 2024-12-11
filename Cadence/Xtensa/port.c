@@ -102,6 +102,11 @@ uint32_t port_xSchedulerRunning = 0U;
 // Interrupt nesting level.
 uint32_t port_interruptNesting  = 0U;
 
+#if ( configNUMBER_OF_CORES > 1 )
+xtos_mutex_p _xt_mutex_ISR;
+xtos_mutex_p _xt_mutex_task;
+#endif
+
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE
 
 //-----------------------------------------------------------------------------
@@ -134,12 +139,12 @@ static void xt_tick_handler( void )
         // Interrupts upto configMAX_SYSCALL_INTERRUPT_PRIORITY must be
         // disabled before calling xTaskIncrementTick as it accesses the
         // kernel lists.
-        interruptMask = portSET_INTERRUPT_MASK_FROM_ISR();
+        interruptMask = taskENTER_CRITICAL_FROM_ISR();
         {
             ret = xTaskIncrementTick();
             ++xt_tick_count;
         }
-        portCLEAR_INTERRUPT_MASK_FROM_ISR( interruptMask );
+        taskEXIT_CRITICAL_FROM_ISR( interruptMask );
 
         portYIELD_FROM_ISR( ret );
 
@@ -187,6 +192,17 @@ static void xt_tick_timer_stop( void )
     xt_set_ccompare( XT_TIMER_INDEX, 0 );
 }
 
+#if ( configNUMBER_OF_CORES > 1 )
+//-----------------------------------------------------------------------------
+// portYIELD_CORE IPI handler wrapper
+//-----------------------------------------------------------------------------
+static void xt_ipi_yield_wrapper( void * arg )
+{
+    UNUSED(arg);
+    portYIELD();
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Start the scheduler.
 //-----------------------------------------------------------------------------
@@ -195,6 +211,9 @@ BaseType_t xPortStartScheduler( void )
     #if XCHAL_HAVE_XEA3
     extern void xt_sched_handler(void * arg);
     int32_t i;
+    #endif
+    #if (configNUMBER_OF_CORES > 1 )
+    uint32_t c;
     #endif
 
     // Interrupts are disabled at this point and stack contains PS with
@@ -233,10 +252,38 @@ BaseType_t xPortStartScheduler( void )
     #if XCHAL_HAVE_ISL
     XT_WSR_ISL(0);
     #endif
-    #endif
+    #endif  // XCHAL_HAVE_XEA3
 
+    #if ( configNUMBER_OF_CORES > 1 )
+    // Claim SMP mutexes then release other cores
+    if (portGET_CORE_ID() == 0) {
+        xtos_mutex_init(_xt_mutex_ISR);
+        xtos_mutex_init(_xt_mutex_task);
+        if (xthal_run_cores(XTSUB_RUN_ALL_CORES)) {
+            return pdFALSE;
+        }
+    }
+
+    // Configure inter-processor interrupts that can be triggered by other cores;
+    // used for portYIELD_CORE().
+    for (c = 0; c < configNUMBER_OF_CORES; c++) {
+        if (c != portGET_CORE_ID()) {
+            uint32_t ipi_intnum[configNUMBER_OF_CORES] = XCHAL_SUBSYS_IPI_S0_INTLIST;
+            if (!xt_set_interrupt_handler(ipi_intnum[c], xt_ipi_yield_wrapper, NULL)) {
+                return pdFALSE;
+                break;
+            }
+        }
+    }
+
+    if (portGET_CORE_ID() == 0) {
+        // Set up and enable timer tick.
+        xt_tick_timer_init();
+    }
+    #else   // configNUMBER_OF_CORES
     // Set up and enable timer tick.
     xt_tick_timer_init();
+    #endif  // configNUMBER_OF_CORES
 
     #if XT_USE_THREAD_SAFE_CLIB
     // Init C library
@@ -513,6 +560,7 @@ void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime )
 
 #if portUSING_MPU_WRAPPERS
 extern void vPortResetPrivilege(BaseType_t previous);
+
 void vPortEnterCritical( void )
 {
     // TODO: handle configALLOW_UNPRIVILEGED_CRITICAL_SECTIONS
@@ -544,6 +592,42 @@ void vPortExitCritical( void )
     {
         // TODO: handle port_interruptNesting
         vTaskExitCritical();
+    }
+}
+
+UBaseType_t vPortEnterCriticalFromISR( void )
+{
+    // TODO: handle configALLOW_UNPRIVILEGED_CRITICAL_SECTIONS
+    // For reference, see commit 79704b from 9/16/2022
+    UBaseType_t ret;
+    if( portIS_PRIVILEGED() == pdFALSE )
+    {
+        portRAISE_PRIVILEGE();
+        ret = vTaskEnterCriticalFromISR();
+        portRESET_PRIVILEGE();
+    }
+    else
+    {
+        // TODO: handle port_interruptNesting
+        ret = vTaskEnterCriticalFromISR();
+    }
+    return ret;
+}
+
+void vPortExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus )
+{
+    // TODO: handle configALLOW_UNPRIVILEGED_CRITICAL_SECTIONS
+    // For reference, see commit 79704b from 9/16/2022
+    if( portIS_PRIVILEGED() == pdFALSE )
+    {
+        portRAISE_PRIVILEGE();
+        vTaskExitCriticalFromISR(uxSavedInterruptStatus);
+        portRESET_PRIVILEGE();
+    }
+    else
+    {
+        // TODO: handle port_interruptNesting
+        vTaskExitCriticalFromISR(uxSavedInterruptStatus);
     }
 }
 #endif

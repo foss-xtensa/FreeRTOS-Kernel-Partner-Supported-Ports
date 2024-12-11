@@ -44,7 +44,11 @@
 
 #include <xtensa/tie/xt_core.h>
 #include <xtensa/hal.h>
-#include <xtensa/config/system.h>	/* required for XSHAL_CLIB */
+#include <xtensa/config/system.h>   /* required for XSHAL_CLIB */
+
+/* required for SMP support */
+#include <xtensa/xtruntime.h>
+#include <xtensa/xtsubsystem.h>
 
 /*-----------------------------------------------------------
  * Port specific definitions.
@@ -116,7 +120,7 @@ portENABLE_INTERRUPTS(void)
 // This is fine for a single core.  TODO: revisit for SMP support.
 // NOTE: consider Espressif solution: GCC/Xtensa_ESP32/include/portmacro.h
 
-#define portCRITICAL_NESTING_IN_TCB	1
+#define portCRITICAL_NESTING_IN_TCB    1
 
 extern void vTaskEnterCritical(void);
 extern void vTaskExitCritical(void);
@@ -125,8 +129,12 @@ extern void vTaskExitCritical(void);
 
 extern void vPortEnterCritical(void);
 extern void vPortExitCritical(void);
+extern UBaseType_t vPortEnterCriticalFromISR(void);
+extern void vPortExitCriticalFromISR(UBaseType_t uxSavedInterruptStatus);
 #define portENTER_CRITICAL()        vPortEnterCritical()
 #define portEXIT_CRITICAL()         vPortExitCritical()
+#define portENTER_CRITICAL_FROM_ISR()   vPortEnterCriticalFromISR()
+#define portEXIT_CRITICAL_FROM_ISR(x)   vPortExitCriticalFromISR(x)
 
 #define portSTACK_ALIGNMENT         XCHAL_MPU_ALIGN
 #define portPRIVILEGE_BIT           0x80000000UL
@@ -153,12 +161,14 @@ extern void vPortExitCritical(void);
 
 #define portENTER_CRITICAL()        vTaskEnterCritical()
 #define portEXIT_CRITICAL()         vTaskExitCritical()
+#define portENTER_CRITICAL_FROM_ISR()   vTaskEnterCriticalFromISR()
+#define portEXIT_CRITICAL_FROM_ISR(x)   vTaskExitCriticalFromISR(x)
 #define portPRIVILEGE_BIT           0UL
 
 #endif
 
 // These allow nested interrupt disabling and restoring via local registers or stack.
-// They can be called from interrupts context.
+// They can be called from interrupt context.
 static inline uint32_t
 portENTER_CRITICAL_NESTED(void)
 {
@@ -191,24 +201,74 @@ portEXIT_CRITICAL_NESTED(uint32_t state)
 }
 
 // These FreeRTOS versions are similar to the nested versions above
+#define portSET_INTERRUPT_MASK()                     portENTER_CRITICAL_NESTED()
+#define portCLEAR_INTERRUPT_MASK(state)              portEXIT_CRITICAL_NESTED(state)
 #define portSET_INTERRUPT_MASK_FROM_ISR()            portENTER_CRITICAL_NESTED()
 #define portCLEAR_INTERRUPT_MASK_FROM_ISR(state)     portEXIT_CRITICAL_NESTED(state)
+
 BaseType_t xPortRaisePrivilege( void );
 
 /*-----------------------------------------------------------*/
 
 /* Architecture specifics. */
-#define portSTACK_GROWTH			( -1 )
-#define portTICK_PERIOD_MS			( ( TickType_t ) 1000 / configTICK_RATE_HZ )
+#define portSTACK_GROWTH                ( -1 )
+#define portTICK_PERIOD_MS              ( ( TickType_t ) 1000 / configTICK_RATE_HZ )
 #ifdef configBYTE_ALIGNMENT
-#define portBYTE_ALIGNMENT			configBYTE_ALIGNMENT
+#define portBYTE_ALIGNMENT              configBYTE_ALIGNMENT
 #elif XCHAL_DATA_WIDTH < 16
-#define portBYTE_ALIGNMENT			XCHAL_DATA_WIDTH
+#define portBYTE_ALIGNMENT              XCHAL_DATA_WIDTH
 #else
-#define portBYTE_ALIGNMENT			16
+#define portBYTE_ALIGNMENT              16
 #endif
-#define portNOP()					XT_NOP()
-#define portMEMORY_BARRIER()        XT_MEMW()
+#define portNOP()                       XT_NOP()
+#define portMEMORY_BARRIER()            XT_MEMW()
+/*-----------------------------------------------------------*/
+
+/* Multicore specifics. */
+#define portCRITICAL_NESTING_IN_TCB     1
+#define portMAX_CORE_COUNT              8
+
+#ifndef configNUMBER_OF_CORES
+    #define configNUMBER_OF_CORES       1
+#elif ( configNUMBER_OF_CORES < 1 || configNUMBER_OF_CORES > portMAX_CORE_COUNT )
+    #error "Invalid number of cores specified in config!"
+#endif
+
+#if ( !XCHAL_DCACHE_IS_COHERENT || ( XCHAL_SUBSYS_NUM_CORES == 1 )) && \
+    ( configNUMBER_OF_CORES > 1 )
+    #error "SMP support requires Coherent Multicore Subsystem"
+#endif
+
+#if ( configNUMBER_OF_CORES > 1 ) && !XCHAL_HAVE_PRID
+    #error "SMP support requires PRID
+#endif
+
+#if ( configTICK_CORE < 0 || configTICK_CORE >= configNUMBER_OF_CORES )
+    #error "Invalid tick core specified in config!"
+#endif
+
+/* FreeRTOS core id is always zero based; set to 0 for single-core case */
+#if ( configNUMBER_OF_CORES > 1 )
+    #define portGET_CORE_ID()           xthal_get_coreid()
+    #define portYIELD_CORE(xCoreID)     xthal_ipi_trigger(xCoreID)
+#else
+    #define portGET_CORE_ID()           0
+    #define portYIELD_CORE(xCoreID)     UNUSED(xCoreID)
+#endif
+
+#if ( configNUMBER_OF_CORES == 1 )
+    #define portGET_ISR_LOCK()
+    #define portRELEASE_ISR_LOCK()
+    #define portGET_TASK_LOCK()
+    #define portRELEASE_TASK_LOCK()
+#else
+    extern xtos_mutex_p _xt_mutex_ISR;
+    extern xtos_mutex_p _xt_mutex_task;
+    #define portGET_ISR_LOCK()         xtos_mutex_lock(_xt_mutex_ISR)
+    #define portRELEASE_ISR_LOCK()     xtos_mutex_unlock(_xt_mutex_ISR)
+    #define portGET_TASK_LOCK()        xtos_mutex_lock(_xt_mutex_task)
+    #define portRELEASE_TASK_LOCK()    xtos_mutex_unlock(_xt_mutex_task)
+#endif
 /*-----------------------------------------------------------*/
 
 /* Fine resolution time */

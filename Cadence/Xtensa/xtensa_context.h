@@ -413,6 +413,7 @@ XSTRUCT_END(XtExcFrame)
 #ifdef __ASSEMBLER__
 
 #include "asm-offsets.h"
+#include "xtensa_asm.h"
 
     // RTOS-specific entry macro. Use only a8, a12-a14.
 
@@ -440,7 +441,7 @@ XSTRUCT_END(XtExcFrame)
     s32i     a9,  a8, 0                         // zero out for next time
     j        .Lyield                            // no context save needed
 2:
-    movi     a8,  pxCurrentTCB
+    pxctcb   a8,  a9                            // pxCurrentTCB or pxCurrentTCBs[]
     l32i     a9,  a8, 0                         // a9 <- pxCurrentTCB
     beqz     a9,  .Lsched                       // no current, go to scheduler
     movi    a10,  port_switch_flag
@@ -507,7 +508,7 @@ XSTRUCT_END(XtExcFrame)
     // Come here directly if the outgoing task yielded. pxCurrentTCB
     // has already been updated.
 
-    movi     a9,  pxCurrentTCB
+    pxctcb   a9,  a10                           // pxCurrentTCB or pxCurrentTCBs[]
     l32i     a9,  a9, 0                         // a9 <- pxCurrentTCB
 
 #if XCHAL_CP_NUM > 0
