@@ -116,12 +116,6 @@ portENABLE_INTERRUPTS(void)
 #endif
 }
 
-// Nested critical sections. Nesting managed by FreeRTOS.
-// This is fine for a single core.  TODO: revisit for SMP support.
-// NOTE: consider Espressif solution: GCC/Xtensa_ESP32/include/portmacro.h
-
-#define portCRITICAL_NESTING_IN_TCB    1
-
 extern void vTaskEnterCritical(void);
 extern void vTaskExitCritical(void);
 
@@ -225,7 +219,6 @@ BaseType_t xPortRaisePrivilege( void );
 /*-----------------------------------------------------------*/
 
 /* Multicore specifics. */
-#define portCRITICAL_NESTING_IN_TCB     1
 #define portMAX_CORE_COUNT              8
 
 #ifndef configNUMBER_OF_CORES
@@ -249,26 +242,44 @@ BaseType_t xPortRaisePrivilege( void );
 
 /* FreeRTOS core id is always zero based; set to 0 for single-core case */
 #if ( configNUMBER_OF_CORES > 1 )
+
     #define portGET_CORE_ID()           xthal_get_coreid()
     #define portYIELD_CORE(xCoreID)     xthal_ipi_trigger(xCoreID)
-#else
-    #define portGET_CORE_ID()           0
-    #define portYIELD_CORE(xCoreID)     UNUSED(xCoreID)
-#endif
+    #define portCRITICAL_NESTING_IN_TCB 0   // Nesting managed by port for SMP
 
-#if ( configNUMBER_OF_CORES == 1 )
-    #define portGET_ISR_LOCK()
-    #define portRELEASE_ISR_LOCK()
-    #define portGET_TASK_LOCK()
-    #define portRELEASE_TASK_LOCK()
-#else
     extern xtos_mutex_p _xt_mutex_ISR;
     extern xtos_mutex_p _xt_mutex_task;
     #define portGET_ISR_LOCK()         xtos_mutex_lock(_xt_mutex_ISR)
     #define portRELEASE_ISR_LOCK()     xtos_mutex_unlock(_xt_mutex_ISR)
     #define portGET_TASK_LOCK()        xtos_mutex_lock(_xt_mutex_task)
     #define portRELEASE_TASK_LOCK()    xtos_mutex_unlock(_xt_mutex_task)
-#endif
+
+    extern UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
+    #define portGET_CRITICAL_NESTING_COUNT()          ( uxCriticalNestings[ portGET_CORE_ID() ] )
+    #define portSET_CRITICAL_NESTING_COUNT( x )       ( uxCriticalNestings[ portGET_CORE_ID() ] = ( x ) )
+    #define portINCREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]++ )
+    #define portDECREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]-- )
+
+    extern uint32_t port_interruptNestings[ configNUMBER_OF_CORES ];
+    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNestings[ portGET_CORE_ID() ]++ )
+    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNestings[ portGET_CORE_ID() ]-- )
+
+#else
+
+    #define portGET_CORE_ID()           0
+    #define portYIELD_CORE(xCoreID)     UNUSED(xCoreID)
+    #define portCRITICAL_NESTING_IN_TCB 1   // Nesting managed by FreeRTOS fine for 1 core
+
+    #define portGET_ISR_LOCK()
+    #define portRELEASE_ISR_LOCK()
+    #define portGET_TASK_LOCK()
+    #define portRELEASE_TASK_LOCK()
+
+    extern uint32_t port_interruptNesting;
+    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNesting++ )
+    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNesting-- )
+
+#endif  // configNUMBER_OF_CORES
 /*-----------------------------------------------------------*/
 
 /* Fine resolution time */

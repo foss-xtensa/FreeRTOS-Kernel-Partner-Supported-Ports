@@ -30,6 +30,24 @@
 #ifndef XTENSA_ASM_H
 #define XTENSA_ASM_H
 
+#if ( configNUMBER_OF_CORES > 1 )
+
+/*
+*******************************************************************************
+* Macro to return core ID into regieter r; trashes register t on some configs.
+* Useful for assembly implementations of xthal_get_coreid().
+*******************************************************************************
+*/
+    .macro  coreid  r, t
+    rsr.prid    \r
+#if XCHAL_SUBSYS_CORE_ID_BITS
+    movi    \t,  XCHAL_SUBSYS_CORE_ID_MASK
+    and     \r, \r, \t
+#endif
+    .endm
+
+#endif
+
 /*
 *******************************************************************************
 * Macro to load a pointer to the current core's current TCB into register r;
@@ -42,18 +60,34 @@
     .extern pxCurrentTCBs
 #endif
 
-    // TODO: TEST THIS...
-    // TODO: TEST THIS...
     .macro  pxctcb  r, t
 #if ( configNUMBER_OF_CORES == 1 )
     movi    \r,  pxCurrentTCB
 #else
-    rsr.prid    \t
-#if XCHAL_SUBSYS_CORE_ID_BITS
-    movi    \r,  XCHAL_SUBSYS_CORE_ID_MASK
-    and     \t, \r, \t
-#endif
+    coreid  \t,  \r
     movi    \r,  pxCurrentTCBs
+    addx4   \r,  \t, \r
+#endif
+    .endm
+
+/*
+*******************************************************************************
+* Macro to load a pointer to the current core's port_interruptNesting variable;
+* trashes register t on SMP configurations.
+*******************************************************************************
+*/
+#if ( configNUMBER_OF_CORES == 1 )
+    .extern port_interruptNesting
+#else
+    .extern port_interruptNestings
+#endif
+
+    .macro  pintnest    r, t
+#if ( configNUMBER_OF_CORES == 1 )
+    movi    \r,  port_interruptNesting
+#else
+    coreid  \t,  \r
+    movi    \r,  port_interruptNestings
     addx4   \r,  \t, \r
 #endif
     .endm

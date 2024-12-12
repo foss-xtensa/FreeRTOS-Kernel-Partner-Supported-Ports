@@ -117,8 +117,8 @@ _frxt_int_enter:
     Manage nesting directly rather than call the generic IntEnter()
     (in windowed ABI we can't call a C function here anyway because PS.EXCM is still set).
     */
+    pintnest a3, a2                     /* a3 <- &port_interruptNesting    */
     movi    a2,  port_xSchedulerRunning
-    movi    a3,  port_interruptNesting
     l32i    a2,  a2, 0                  /* a2 = port_xSchedulerRunning     */
     beqz    a2,  1f                     /* scheduler not running, no tasks */
     l32i    a2,  a3, 0                  /* a2 = port_interruptNesting      */
@@ -161,8 +161,8 @@ _frxt_int_enter:
     .align  4
 _frxt_int_exit:
 
+    pintnest a3, a2                     /* a3 <- &port_interruptNesting    */
     movi    a2,  port_xSchedulerRunning
-    movi    a3,  port_interruptNesting
     rsil    a0,  XT_IRQ_LOCK_LEVEL      /* lock out interrupts             */
     l32i    a2,  a2, 0                  /* a2 = port_xSchedulerRunning     */
     beqz    a2,  .Lnoswitch             /* scheduler not running, no tasks */
@@ -272,12 +272,18 @@ _frxt_dispatch:
     s32i    a3, a2, 0                       /* Indicate thread yield.       */
 
 #ifdef __XTENSA_CALL0_ABI__
+    #if ( configNUMBER_OF_CORES > 1 )
+    coreid  a2,  a3
+    #endif
     call0   vTaskSwitchContext  // Get next TCB to resume
     pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
 #else
+    #if ( configNUMBER_OF_CORES > 1 )
+    coreid  a10, a3
+    #endif
     pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     call8   vTaskSwitchContext  // Get next TCB to resume
-#endif
+#endif  // __XTENSA_CALL0_ABI__
 
     l32i    a3,  a2, 0                      /* a3 = pxCurrentTCB           */
     l32i    a1,  a3, TCB_TOP_OF_STACK_OFF   /* SP = next_TCB->pxTopOfStack */
@@ -296,9 +302,15 @@ _frxt_dispatch:
 
 #if XCHAL_HAVE_XEA2
     #ifdef __XTENSA_CALL0_ABI__
+    #if ( configNUMBER_OF_CORES > 1 )
+    coreid  a2,  a3
+    #endif
     call0   vTaskSwitchContext  // Get next TCB to resume
     pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     #else
+    #if ( configNUMBER_OF_CORES > 1 )
+    coreid  a6,  a3
+    #endif
     pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     call4   vTaskSwitchContext  // Get next TCB to resume
     #endif
@@ -687,7 +699,7 @@ _xt_task_coproc_state:
     movi    a15, port_xSchedulerRunning /* if (port_xSchedulerRunning                   */
     l32i    a15, a15, 0
     beqz    a15, 2f
-    movi    a15, port_interruptNesting  /* && port_interruptNesting == 0                */
+    pintnest a15, a8                    /* a15 <- &port_interruptNesting                */
     l32i    a15, a15, 0
     bnez    a15, 1f
     pxctcb  a15, a8                         /* pxCurrentTCB or pxCurrentTCBs[] */

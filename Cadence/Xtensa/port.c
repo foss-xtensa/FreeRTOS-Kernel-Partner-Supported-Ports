@@ -97,14 +97,24 @@ int32_t xt_sw_intnum = -1;
 #endif
 
 // Duplicate of inaccessible xSchedulerRunning.
+// IAN: TODO: duplicate per-core for SMP?
 uint32_t port_xSchedulerRunning = 0U;
+
+#if ( configNUMBER_OF_CORES == 1 )
 
 // Interrupt nesting level.
 uint32_t port_interruptNesting  = 0U;
 
-#if ( configNUMBER_OF_CORES > 1 )
+#else
+
+// Interrupt nesting level.
+uint32_t port_interruptNestings[ configNUMBER_OF_CORES ];
+
+UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
+
 xtos_mutex_p _xt_mutex_ISR;
 xtos_mutex_p _xt_mutex_task;
+
 #endif
 
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE
@@ -273,6 +283,7 @@ BaseType_t xPortStartScheduler( void )
                 return pdFALSE;
                 break;
             }
+            xt_interrupt_enable(ipi_intnum[c]);
         }
     }
 
@@ -573,7 +584,6 @@ void vPortEnterCritical( void )
     }
     else
     {
-        // TODO: handle port_interruptNesting
         vTaskEnterCritical();
     }
 }
@@ -590,7 +600,6 @@ void vPortExitCritical( void )
     }
     else
     {
-        // TODO: handle port_interruptNesting
         vTaskExitCritical();
     }
 }
@@ -608,7 +617,6 @@ UBaseType_t vPortEnterCriticalFromISR( void )
     }
     else
     {
-        // TODO: handle port_interruptNesting
         ret = vTaskEnterCriticalFromISR();
     }
     return ret;
@@ -626,7 +634,6 @@ void vPortExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus )
     }
     else
     {
-        // TODO: handle port_interruptNesting
         vTaskExitCriticalFromISR(uxSavedInterruptStatus);
     }
 }

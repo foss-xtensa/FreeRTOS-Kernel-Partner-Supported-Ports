@@ -428,8 +428,8 @@ XSTRUCT_END(XtExcFrame)
 
     // Check scheduler state and interrupt nest state.
 
+    pintnest a9,  a8                            // a9 <- &port_interruptNesting
     movi     a8,  port_xSchedulerRunning
-    movi     a9,  port_interruptNesting
     l32i     a8,  a8, 0                         // a8 <- port_xSchedulerRunning
     beqz     a8,  .Lnested                      // scheduler not running, no tasks
     l32i     a8,  a9, 0                         // a8 <- port_interruptNesting
@@ -497,12 +497,18 @@ XSTRUCT_END(XtExcFrame)
 
     addi     a1,  a1, -XT_STK_FRMSZ -32
 #ifdef __XTENSA_WINDOWED_ABI__
-    movi    a10, vTaskSwitchContext
-    callx8  a10
-#else
-    movi    a10, vTaskSwitchContext
-    callx0  a10
+#if ( configNUMBER_OF_CORES > 1 )
+    coreid  a10, a9
 #endif
+    movi     a9, vTaskSwitchContext
+    callx8   a9
+#else
+#if ( configNUMBER_OF_CORES > 1 )
+    coreid   a2, a9
+#endif
+    movi     a9, vTaskSwitchContext
+    callx0   a9
+#endif  // __XTENSA_WINDOWED_ABI__
 
 .Lyield:
     // Come here directly if the outgoing task yielded. pxCurrentTCB
