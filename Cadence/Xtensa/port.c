@@ -112,8 +112,8 @@ uint32_t port_interruptNestings[ configNUMBER_OF_CORES ];
 
 UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
 
-xtos_mutex_p _xt_mutex_ISR;
-xtos_mutex_p _xt_mutex_task;
+xtos_mutex _xt_mutex_ISR;
+xtos_mutex _xt_mutex_task;
 
 #endif
 
@@ -267,8 +267,8 @@ BaseType_t xPortStartScheduler( void )
     #if ( configNUMBER_OF_CORES > 1 )
     // Claim SMP mutexes then release other cores
     if (portGET_CORE_ID() == 0) {
-        xtos_mutex_init(_xt_mutex_ISR);
-        xtos_mutex_init(_xt_mutex_task);
+        xtos_mutex_init(&_xt_mutex_ISR);
+        xtos_mutex_init(&_xt_mutex_task);
         if (xthal_run_cores(XTSUB_RUN_ALL_CORES)) {
             return pdFALSE;
         }

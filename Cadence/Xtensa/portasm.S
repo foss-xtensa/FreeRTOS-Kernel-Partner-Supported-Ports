@@ -37,6 +37,7 @@
 *******************************************************************************
 * Interrupt stack. The size of the interrupt stack is determined by the config
 * parameter "configISR_STACK_SIZE" in FreeRTOSConfig.h
+// TODO: make these per-core for SMP...
 *******************************************************************************
 */
     .data

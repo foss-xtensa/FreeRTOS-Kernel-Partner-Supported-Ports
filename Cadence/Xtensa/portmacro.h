@@ -247,12 +247,12 @@ BaseType_t xPortRaisePrivilege( void );
     #define portYIELD_CORE(xCoreID)     xthal_ipi_trigger(xCoreID)
     #define portCRITICAL_NESTING_IN_TCB 0   // Nesting managed by port for SMP
 
-    extern xtos_mutex_p _xt_mutex_ISR;
-    extern xtos_mutex_p _xt_mutex_task;
-    #define portGET_ISR_LOCK()         xtos_mutex_lock(_xt_mutex_ISR)
-    #define portRELEASE_ISR_LOCK()     xtos_mutex_unlock(_xt_mutex_ISR)
-    #define portGET_TASK_LOCK()        xtos_mutex_lock(_xt_mutex_task)
-    #define portRELEASE_TASK_LOCK()    xtos_mutex_unlock(_xt_mutex_task)
+    extern xtos_mutex _xt_mutex_ISR;
+    extern xtos_mutex _xt_mutex_task;
+    #define portGET_ISR_LOCK()         xtos_mutex_lock(&_xt_mutex_ISR)
+    #define portRELEASE_ISR_LOCK()     xtos_mutex_unlock(&_xt_mutex_ISR)
+    #define portGET_TASK_LOCK()        xtos_mutex_lock(&_xt_mutex_task)
+    #define portRELEASE_TASK_LOCK()    xtos_mutex_unlock(&_xt_mutex_task)
 
     extern UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
     #define portGET_CRITICAL_NESTING_COUNT()          ( uxCriticalNestings[ portGET_CORE_ID() ] )

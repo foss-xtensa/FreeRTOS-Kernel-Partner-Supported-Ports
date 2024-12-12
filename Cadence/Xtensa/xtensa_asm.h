@@ -41,6 +41,7 @@
     .macro  coreid  r, t
     rsr.prid    \r
 #if XCHAL_SUBSYS_CORE_ID_BITS
+    // TODO: try and use extui to save 1 instruction...
     movi    \t,  XCHAL_SUBSYS_CORE_ID_MASK
     and     \r, \r, \t
 #endif
