@@ -132,6 +132,15 @@ _frxt_int_enter:
     beqz    a2,  1f
     s32i    a1,  a2, TCB_TOP_OF_STACK_OFF   /* pxCurrentTCB->pxTopOfStack = SP */
     movi    a1,  xt_interrupt_stack_top /* a1 = top of intr stack          */
+    #if ( configNUMBER_OF_CORES > 1 )
+    coreid  a2,  a3
+    beqz    a2,  1f
+    movi    a3,  configISR_STACK_SIZE
+.Lset_int_stack:
+    add     a1,  a1, a3
+    addi    a2,  a2, -1
+    bnez    a2,  .Lset_int_stack
+    #endif
 
 .Lnested:
 1:

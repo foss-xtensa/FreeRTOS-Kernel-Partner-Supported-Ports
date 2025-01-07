@@ -69,6 +69,9 @@ xt_vpri_mask:     .word   0xFFFFFFFF    /* Virtual priority mask */
 /*
 -------------------------------------------------------------------------------
   System interrupt stack.
+
+  For SMP configurations, (configNUMBER_OF_CORES * configISR_STACK_SIZE) bytes
+  are allocated.
 -------------------------------------------------------------------------------
 */
 
@@ -85,6 +88,9 @@ xt_vpri_mask:     .word   0xFFFFFFFF    /* Virtual priority mask */
 xt_interrupt_stack:
     .space  configISR_STACK_SIZE
 xt_interrupt_stack_top:
+    .rept   configNUMBER_OF_CORES - 1
+    .space  configISR_STACK_SIZE
+    .endr
 
 
 /*
