@@ -96,16 +96,18 @@ static volatile uint32_t xt_skip_tick;
 int32_t xt_sw_intnum = -1;
 #endif
 
-// Duplicate of inaccessible xSchedulerRunning.
-// IAN: TODO: duplicate per-core for SMP?
-uint32_t port_xSchedulerRunning = 0U;
-
 #if ( configNUMBER_OF_CORES == 1 )
+
+// Duplicate of inaccessible xSchedulerRunning.
+uint32_t port_xSchedulerRunning = 0U;
 
 // Interrupt nesting level.
 uint32_t port_interruptNesting  = 0U;
 
 #else
+
+// Duplicate of inaccessible xSchedulerRunning.
+uint32_t port_xSchedulerRunning __attribute__((section(".rtos.percpu.data"))) = 0U;
 
 // Interrupt nesting level.
 uint32_t port_interruptNestings[ configNUMBER_OF_CORES ];
@@ -209,7 +211,8 @@ static void xt_tick_timer_stop( void )
 static void xt_ipi_yield_wrapper( void * arg )
 {
     UNUSED(arg);
-    portYIELD();
+    portYIELD_FROM_ISR(1);  // Flag a context switch
+    vPortYieldFromInt();    // Trigger unsolicited switch from ISR
 }
 #endif
 

@@ -766,4 +766,46 @@ Overlay Support
     for more details.
 
 
+SMP Support For Xtensa LX
+-------------------------
+
+FreeRTOS v11 SMP configuration is supported beginning with Xtensa port 
+version 3.10.  General details regarding SMP on FreeRTOS can be found here:
+
+https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/13-Symmetric-multiprocessing-introduction
+
+Important information regarding Xtensa SMP support:
+
+- Only LX8 multicore configurations are supported at this time.
+  SMP mode is disabled by default for all configs.  SMP mode is enabled 
+  by defining configNUMBER_OF_CORES > 1.  For the Xtensa Demo suite, this
+  setting is found in common/config_files/FreeRTOSConfig.h.
+
+- SMP support relies on coherent shared memory, which is enabled by default
+  by the LX8 multicore boot code.
+
+- MPU support is required for the Xtensa coherence protocol to function,
+  as all coherent memory regions must be configured as inner-shareable or 
+  outer-shareable.  This is usually specified in the MPU table that is 
+  linked into the executable and used to program the MPU at boot-up.
+
+- An SMP example is provided in common/application_code/cadence_code/xt_smp.c
+  and can be built by running "make MPU=1 SMP=1" in Cadence_Xtensa_ISS_xt-clang/.
+
+- A small number of global variables within the port (e.g. for interrupt 
+  handling and scheduling) must be allocated per-core, and by default are 
+  placed in a section named ".rtos.percpu.data".  When linked with the 
+  "sim-mc" LSP, these objects get placed into per-core dataram by default.
+
+- The Xtensa system interrupt stack (mentioned above) is replicated per-core
+  in order to properly handle interrupts on a shared-memory system.  These
+  stacks are typically too large to be an efficient use of dataram, so they
+  are replicated and placed alongside other default .data objects.
+
+- A single interrupt dispatch table is shared for all cores in the SMP system.
+  Therefore, registering an ISR on one core will result in the same handler
+  being registered for that interrupt on all cores.  However, interrupts are
+  still enabled and disabled on a per-core basis.
+
+
 -End-

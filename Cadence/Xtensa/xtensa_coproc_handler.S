@@ -45,7 +45,11 @@
 // Table of coprocessor owners, identified by thread's CP save area pointer.
 // Zero means coprocessor is not owned.
 
+#if ( configNUMBER_OF_CORES > 1 )
+        .section ".rtos.percpu.data"
+#else
         .data
+#endif
         .global _xt_coproc_owner_sa
         .align  16,,XCHAL_CP_MAX << 2   //  minimize crossing cache boundaries
 _xt_coproc_owner_sa:

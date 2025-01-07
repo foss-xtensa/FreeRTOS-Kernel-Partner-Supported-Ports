@@ -290,6 +290,7 @@ BaseType_t xPortRaisePrivilege( void );
 
 /* Kernel utilities. */
 void vPortYield( void );
+void vPortYieldFromInt( void );
 void _frxt_setup_switch( void );
 #define portYIELD()       vPortYield()
 #define portYIELD_FROM_ISR( xHigherPriorityTaskWoken )	\

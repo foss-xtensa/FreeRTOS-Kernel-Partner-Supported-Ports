@@ -35,12 +35,15 @@
 
 /*
 *******************************************************************************
-* Interrupt stack. The size of the interrupt stack is determined by the config
-* parameter "configISR_STACK_SIZE" in FreeRTOSConfig.h
-// TODO: make these per-core for SMP...
+* For SMP systems, these flag variables must be placed into per-core memory
+* (typically dataram).
 *******************************************************************************
 */
+#if ( configNUMBER_OF_CORES > 1 )
+    .section ".rtos.percpu.data"
+#else
     .data
+#endif
     .align      16
     .global     port_switch_flag
 port_switch_flag:

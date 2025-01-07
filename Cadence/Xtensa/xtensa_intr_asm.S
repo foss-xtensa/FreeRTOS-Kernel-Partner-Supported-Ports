@@ -50,7 +50,11 @@
 
 #if XCHAL_HAVE_XEA2 && (XCHAL_NUM_INTERRUPTS <= 32)
 
+#if ( configNUMBER_OF_CORES > 1 )
+    .section ".rtos.percpu.data"
+#else
     .data
+#endif
     .global xt_intdata
     .align  8
 xt_intdata:
@@ -71,7 +75,8 @@ xt_vpri_mask:     .word   0xFFFFFFFF    /* Virtual priority mask */
   System interrupt stack.
 
   For SMP configurations, (configNUMBER_OF_CORES * configISR_STACK_SIZE) bytes
-  are allocated.
+  are allocated.  Avoid placing this in per-core memory (usually dataram) as 
+  that is a valuable resource.
 -------------------------------------------------------------------------------
 */
 
@@ -98,6 +103,10 @@ xt_interrupt_stack_top:
   Table of C-callable interrupt handlers for each interrupt. For XEA2 configs,
   not all slots can be filled, because interrupts at level > EXCM_LEVEL will
   not be dispatched to a C handler by default.
+
+  NOTE: This is not replicated for SMP systems, so registering an interrupt 
+  handler on one core will register the same handler for that interrupt on all
+  cores.  However, Interrupts are enabled and disabled on a per-core basis.
 -------------------------------------------------------------------------------
 */
 
