@@ -776,13 +776,15 @@ https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/13-Symmetric
 
 Important information regarding Xtensa SMP support:
 
-- Only LX8 multicore configurations are supported at this time.
-  SMP mode is disabled by default for all configs.  SMP mode is enabled 
+- SMP requirements: 1+ dataram (per-core), MPU (for coherence).
+  Only coherent LX8 multicore configurations are supported at this time.
+
+- SMP mode is disabled by default for all configs.  SMP mode is enabled 
   by defining configNUMBER_OF_CORES > 1.  For the Xtensa Demo suite, this
   setting is found in common/config_files/FreeRTOSConfig.h.
 
-- SMP support relies on coherent shared memory, which is enabled by default
-  by the LX8 multicore boot code.
+- SMP support relies on coherent shared memory being enabled prior to FreeRTOS
+  initialization.  It is enabled by default in the LX8 multicore boot code.
 
 - MPU support is required for the Xtensa coherence protocol to function,
   as all coherent memory regions must be configured as inner-shareable or 
