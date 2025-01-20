@@ -268,13 +268,10 @@ BaseType_t xPortStartScheduler( void )
     #endif  // XCHAL_HAVE_XEA3
 
     #if ( configNUMBER_OF_CORES > 1 )
-    // Claim SMP mutexes then release other cores
+    // Initialize SMP mutexes
     if (portGET_CORE_ID() == 0) {
         xtos_mutex_init(&_xt_mutex_ISR);
         xtos_mutex_init(&_xt_mutex_task);
-        if (xthal_run_cores(XTSUB_RUN_ALL_CORES)) {
-            return pdFALSE;
-        }
     }
 
     // Configure inter-processor interrupts that can be triggered by other cores;
@@ -311,6 +308,15 @@ BaseType_t xPortStartScheduler( void )
     #endif
 
     port_xSchedulerRunning = 1U;
+
+    #if ( configNUMBER_OF_CORES > 1 )
+    if (portGET_CORE_ID() == 0) {
+        // Release other cores last
+        if (xthal_run_cores(XTSUB_RUN_ALL_CORES)) {
+            return pdFALSE;
+        }
+    }
+    #endif
 
     // Cannot be directly called from C; never returns
     __asm__ volatile ("call0    _frxt_dispatch\n");
