@@ -233,7 +233,11 @@ BaseType_t xPortRaisePrivilege( void );
 #endif
 
 #if ( configNUMBER_OF_CORES > 1 ) && !XCHAL_HAVE_PRID
-    #error "SMP support requires PRID
+    #error "SMP support requires PRID"
+#endif
+
+#if ( configNUMBER_OF_CORES > 1 ) && portUSING_MPU_WRAPPERS
+    #error "SMP support requires FreeRTOS MPU wrappers to be off"
 #endif
 
 #if ( configTICK_CORE < 0 || configTICK_CORE >= configNUMBER_OF_CORES )

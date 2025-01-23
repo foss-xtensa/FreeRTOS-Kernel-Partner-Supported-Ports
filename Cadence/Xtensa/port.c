@@ -82,7 +82,7 @@ extern void _xt_task_start_user( void );
 #endif
 
 // Timer tick interval in cycles.
-static uint32_t xt_tick_cycles;
+uint32_t xt_tick_cycles;
 TickType_t xMaxSuppressedTicks;
 
 static uint32_t xt_tick_count;
