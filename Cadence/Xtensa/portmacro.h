@@ -240,12 +240,15 @@ BaseType_t xPortRaisePrivilege( void );
     #error "SMP support requires FreeRTOS MPU wrappers to be off"
 #endif
 
-#if ( configTICK_CORE < 0 || configTICK_CORE >= configNUMBER_OF_CORES )
-    #error "Invalid tick core specified in config!"
-#endif
 
 /* FreeRTOS core id is always zero based; set to 0 for single-core case */
 #if ( configNUMBER_OF_CORES > 1 )
+
+#ifndef configTICK_CORE
+    #define configTICK_CORE             0
+#elif ( configTICK_CORE < 0 || configTICK_CORE >= configNUMBER_OF_CORES )
+    #error "Invalid tick core specified in config!"
+#endif
 
     #define portGET_CORE_ID()           xthal_get_coreid()
     #define portYIELD_CORE(xCoreID)     xthal_ipi_trigger(xCoreID)

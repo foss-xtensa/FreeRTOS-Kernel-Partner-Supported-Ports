@@ -287,7 +287,7 @@ BaseType_t xPortStartScheduler( void )
         }
     }
 
-    if (portGET_CORE_ID() == 0) {
+    if (portGET_CORE_ID() == configTICK_CORE) {
         // Set up and enable timer tick.
         xt_tick_timer_init();
     }
