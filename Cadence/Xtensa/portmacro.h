@@ -118,6 +118,8 @@ portENABLE_INTERRUPTS(void)
 
 extern void vTaskEnterCritical(void);
 extern void vTaskExitCritical(void);
+extern UBaseType_t vTaskEnterCriticalFromISR(void);
+extern void vTaskExitCriticalFromISR(UBaseType_t uxSavedInterruptStatus);
 
 #if portUSING_MPU_WRAPPERS
 

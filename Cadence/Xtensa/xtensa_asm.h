@@ -30,6 +30,8 @@
 #ifndef XTENSA_ASM_H
 #define XTENSA_ASM_H
 
+#include <FreeRTOSConfig.h>
+
 #if ( configNUMBER_OF_CORES > 1 )
 
 /*
