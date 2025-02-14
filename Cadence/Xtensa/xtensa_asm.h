@@ -32,7 +32,13 @@
 
 #include <FreeRTOSConfig.h>
 
-#if ( configNUMBER_OF_CORES > 1 )
+#if (defined configNUMBER_OF_CORES) && ( configNUMBER_OF_CORES > 1 )
+#define XT_SMP_MACROS		1
+#else
+#define XT_SMP_MACROS		0
+#endif
+
+#if XT_SMP_MACROS
 
 /*
 *******************************************************************************
@@ -49,7 +55,7 @@
 #endif
     .endm
 
-#endif
+#endif	/* XT_SMP_MACROS */
 
 /*
 *******************************************************************************
@@ -57,19 +63,19 @@
 * trashes register t on SMP configurations.
 *******************************************************************************
 */
-#if ( configNUMBER_OF_CORES == 1 )
-    .extern pxCurrentTCB
-#else
+#if XT_SMP_MACROS
     .extern pxCurrentTCBs
+#else
+    .extern pxCurrentTCB
 #endif
 
     .macro  pxctcb  r, t
-#if ( configNUMBER_OF_CORES == 1 )
-    movi    \r,  pxCurrentTCB
-#else
+#if XT_SMP_MACROS
     coreid  \t,  \r
     movi    \r,  pxCurrentTCBs
     addx4   \r,  \t, \r
+#else
+    movi    \r,  pxCurrentTCB
 #endif
     .endm
 
@@ -79,19 +85,19 @@
 * trashes register t on SMP configurations.
 *******************************************************************************
 */
-#if ( configNUMBER_OF_CORES == 1 )
-    .extern port_interruptNesting
-#else
+#if XT_SMP_MACROS
     .extern port_interruptNestings
+#else
+    .extern port_interruptNesting
 #endif
 
     .macro  pintnest    r, t
-#if ( configNUMBER_OF_CORES == 1 )
-    movi    \r,  port_interruptNesting
-#else
+#if XT_SMP_MACROS
     coreid  \t,  \r
     movi    \r,  port_interruptNestings
     addx4   \r,  \t, \r
+#else
+    movi    \r,  port_interruptNesting
 #endif
     .endm
 

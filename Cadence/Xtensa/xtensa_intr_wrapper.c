@@ -66,7 +66,7 @@ xt_interrupt_wrapper(void * arg)
     xt_handler               handler;
 
     state = portENTER_CRITICAL_NESTED();
-    portINCREMENT_INTERRUPT_NESTING_COUNT;
+    portINCREMENT_INTERRUPT_NESTING_COUNT();
     portEXIT_CRITICAL_NESTED(state);
 
     /* Load handler address and argument from table. Note that the
@@ -91,7 +91,7 @@ xt_interrupt_wrapper(void * arg)
     }
 
     state = portENTER_CRITICAL_NESTED();
-    portDECREMENT_INTERRUPT_NESTING_COUNT;
+    portDECREMENT_INTERRUPT_NESTING_COUNT();
     portEXIT_CRITICAL_NESTED(state);
 }
 

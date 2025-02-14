@@ -118,19 +118,13 @@ portENABLE_INTERRUPTS(void)
 
 extern void vTaskEnterCritical(void);
 extern void vTaskExitCritical(void);
-extern UBaseType_t vTaskEnterCriticalFromISR(void);
-extern void vTaskExitCriticalFromISR(UBaseType_t uxSavedInterruptStatus);
 
 #if portUSING_MPU_WRAPPERS
 
 extern void vPortEnterCritical(void);
 extern void vPortExitCritical(void);
-extern UBaseType_t vPortEnterCriticalFromISR(void);
-extern void vPortExitCriticalFromISR(UBaseType_t uxSavedInterruptStatus);
 #define portENTER_CRITICAL()        vPortEnterCritical()
 #define portEXIT_CRITICAL()         vPortExitCritical()
-#define portENTER_CRITICAL_FROM_ISR()   vPortEnterCriticalFromISR()
-#define portEXIT_CRITICAL_FROM_ISR(x)   vPortExitCriticalFromISR(x)
 
 #define portSTACK_ALIGNMENT         XCHAL_MPU_ALIGN
 #define portPRIVILEGE_BIT           0x80000000UL
@@ -157,8 +151,6 @@ extern void vPortExitCriticalFromISR(UBaseType_t uxSavedInterruptStatus);
 
 #define portENTER_CRITICAL()        vTaskEnterCritical()
 #define portEXIT_CRITICAL()         vTaskExitCritical()
-#define portENTER_CRITICAL_FROM_ISR()   vTaskEnterCriticalFromISR()
-#define portEXIT_CRITICAL_FROM_ISR(x)   vTaskExitCriticalFromISR(x)
 #define portPRIVILEGE_BIT           0UL
 
 #endif
@@ -272,6 +264,11 @@ BaseType_t xPortRaisePrivilege( void );
     extern uint32_t port_interruptNestings[ configNUMBER_OF_CORES ];
     #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNestings[ portGET_CORE_ID() ]++ )
     #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNestings[ portGET_CORE_ID() ]-- )
+
+    extern UBaseType_t vTaskEnterCriticalFromISR(void);
+    extern void vTaskExitCriticalFromISR(UBaseType_t uxSavedInterruptStatus);
+    #define portENTER_CRITICAL_FROM_ISR()   vTaskEnterCriticalFromISR()
+    #define portEXIT_CRITICAL_FROM_ISR(x)   vTaskExitCriticalFromISR(x)
 
 #else
 

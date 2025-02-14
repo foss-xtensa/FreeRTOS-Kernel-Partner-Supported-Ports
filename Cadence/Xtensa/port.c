@@ -612,40 +612,6 @@ void vPortExitCritical( void )
         vTaskExitCritical();
     }
 }
-
-UBaseType_t vPortEnterCriticalFromISR( void )
-{
-    // TODO: handle configALLOW_UNPRIVILEGED_CRITICAL_SECTIONS
-    // For reference, see commit 79704b from 9/16/2022
-    UBaseType_t ret;
-    if( portIS_PRIVILEGED() == pdFALSE )
-    {
-        portRAISE_PRIVILEGE();
-        ret = vTaskEnterCriticalFromISR();
-        portRESET_PRIVILEGE();
-    }
-    else
-    {
-        ret = vTaskEnterCriticalFromISR();
-    }
-    return ret;
-}
-
-void vPortExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus )
-{
-    // TODO: handle configALLOW_UNPRIVILEGED_CRITICAL_SECTIONS
-    // For reference, see commit 79704b from 9/16/2022
-    if( portIS_PRIVILEGED() == pdFALSE )
-    {
-        portRAISE_PRIVILEGE();
-        vTaskExitCriticalFromISR(uxSavedInterruptStatus);
-        portRESET_PRIVILEGE();
-    }
-    else
-    {
-        vTaskExitCriticalFromISR(uxSavedInterruptStatus);
-    }
-}
 #endif
 
 #if ( configUSE_VARIABLE_FREQUENCY != 0 )
