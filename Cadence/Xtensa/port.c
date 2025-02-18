@@ -1,6 +1,6 @@
 /*
  * FreeRTOS Kernel <DEVELOPMENT BRANCH>
- * Copyright (C) 2015-2024 Cadence Design Systems, Inc.
+ * Copyright (C) 2015-2025 Cadence Design Systems, Inc.
  * Copyright (C) 2021 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -281,7 +281,6 @@ BaseType_t xPortStartScheduler( void )
             uint32_t ipi_intnum[configNUMBER_OF_CORES] = XCHAL_SUBSYS_IPI_S0_INTLIST;
             if (!xt_set_interrupt_handler(ipi_intnum[c], xt_ipi_yield_wrapper, NULL)) {
                 return pdFALSE;
-                break;
             }
             xt_interrupt_enable(ipi_intnum[c]);
         }

@@ -795,8 +795,9 @@ Important information regarding Xtensa SMP support:
   must be disabled.  This allows FreeRTOS to maintain a fully-coherent memory
   map such that system state is always available and shared across cores.
 
-- An SMP example is provided in common/application_code/cadence_code/xt_smp.c
-  and can be built by running "make SMP=1" in Cadence_Xtensa_ISS_xt-clang/.
+- SMP examples are provided in common/application_code/cadence_code/xt_smp.c
+  and common/application_code/cadence_code/xt_mc_demo.c and can be built
+  by running "make SMP=1" in Cadence_Xtensa_ISS_xt-clang/.
 
 - A small number of global variables within the port (e.g. for interrupt
   handling and scheduling) must be allocated per-core, and by default are
