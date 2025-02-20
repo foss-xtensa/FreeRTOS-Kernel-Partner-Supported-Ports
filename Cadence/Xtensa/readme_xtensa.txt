@@ -804,6 +804,10 @@ Important information regarding Xtensa SMP support:
   placed in a section named ".rtos.percpu.data".  When linked with the
   "sim-mc" LSP, these objects get placed into per-core dataram by default.
 
+  NOTE: If only one executable is loaded onto one core, use a romable LSP to
+  ensure .rtos.percpu.data are properly unpacked into each core's dataram,
+  e.g. by running "make SMP=1 LSP=sim-mc-rom" in Cadence_Xtensa_ISS_xt-clang/.
+
 - The Xtensa system interrupt stack (mentioned above) is replicated per-core
   in order to properly handle interrupts on a shared-memory system.  These
   stacks are typically too large to be an efficient use of dataram, so they
