@@ -1,7 +1,10 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#if (defined SMP_TEST)
 #include "smp_rj4_patch.h"
+#endif
+
 #include "../../../../../tasks.c"
 
 #define DEFINE(sym,val) \
