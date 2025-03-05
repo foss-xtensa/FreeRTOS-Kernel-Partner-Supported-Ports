@@ -776,7 +776,7 @@ https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/13-Symmetric
 
 Important information regarding Xtensa SMP support:
 
-- SMP requirements: 1+ dataram (per-core), MPU (for coherence), 1 set of 
+- SMP requirements: 1+ dataram (per-core), MPU (for coherence), 1 set of
   inter-processor interrupts (IPIs) mapped to core interrupts <= EXCM_LEVEL.
   Only coherent LX8 multicore configurations are supported at this time.
 
@@ -806,8 +806,11 @@ Important information regarding Xtensa SMP support:
 
 - A small number of global variables within the port (e.g. for interrupt
   handling and scheduling) must be allocated per-core, and by default are
-  placed in a section named ".rtos.percpu.data".  When linked with the
-  "sim-mc" LSP, these objects get placed into per-core dataram by default.
+  placed in a section named ".rtos.percpu.data".  The CLIB reentrancy data
+  are similarly allocated per-core, and by default are placed in the section
+  ".clib.percpu.bss".  When linked with the "sim-mc" LSP, these objects get
+  placed into per-core dataram by default.  Typically, around 400 bytes of
+  dataram are required for these structures.
 
   NOTE: If only one executable is loaded onto one core, use a romable LSP to
   ensure .rtos.percpu.data are properly unpacked into each core's dataram,
