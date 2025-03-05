@@ -1,5 +1,7 @@
 #include <stddef.h>
 #include <stdio.h>
+
+#include "smp_rj4_patch.h"
 #include "../../../../../tasks.c"
 
 #define DEFINE(sym,val) \

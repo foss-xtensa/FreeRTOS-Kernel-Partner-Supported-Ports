@@ -221,22 +221,57 @@ BaseType_t xPortRaisePrivilege( void );
     #error "Invalid number of cores specified in config!"
 #endif
 
-#if ( !XCHAL_DCACHE_IS_COHERENT || ( XCHAL_SUBSYS_NUM_CORES == 1 )) && \
-    ( configNUMBER_OF_CORES > 1 )
-    #error "SMP support requires Coherent Multicore Subsystem"
-#endif
-
-#if ( configNUMBER_OF_CORES > 1 ) && !XCHAL_HAVE_PRID
-    #error "SMP support requires PRID"
-#endif
-
-#if ( configNUMBER_OF_CORES > 1 ) && portUSING_MPU_WRAPPERS
-    #error "SMP support requires FreeRTOS MPU wrappers to be off"
-#endif
-
 
 /* FreeRTOS core id is always zero based; set to 0 for single-core case */
 #if ( configNUMBER_OF_CORES > 1 )
+
+/* Various checks to confirm config is compatible with FreeRTOS SMP */
+#if ( !XCHAL_DCACHE_IS_COHERENT || ( XCHAL_SUBSYS_NUM_CORES == 1 ))
+    #error "SMP support requires Coherent Multicore Subsystem"
+#endif
+
+#if !XCHAL_HAVE_PRID
+    #error "SMP support requires PRID"
+#endif
+
+#if portUSING_MPU_WRAPPERS
+    #error "SMP support requires FreeRTOS MPU wrappers to be off"
+#endif
+
+/* Patch to allow RJ.4 toolchain to build correctly for a specific config */
+#include "smp_rj4_patch.h"
+
+#if !XCHAL_SUBSYS_IPI_NUM_SETS
+    #error "SMP support requires at least one set of inter-processor interrupts (IPIs)"
+#endif
+
+/* Patch to allow RJ.4 toolchain to build correctly for a specific config */
+#include "smp_rj4_patch.h"
+
+#if (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C0_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C0 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C1_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C1 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 2) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C2_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C2 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 3) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C3_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C3 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 4) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C4_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C4 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 5) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C5_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C5 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 6) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C6_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C6 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 7) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C7_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C7 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
 
 #ifndef configTICK_CORE
     #define configTICK_CORE             0
@@ -270,7 +305,7 @@ BaseType_t xPortRaisePrivilege( void );
     #define portENTER_CRITICAL_FROM_ISR()   vTaskEnterCriticalFromISR()
     #define portEXIT_CRITICAL_FROM_ISR(x)   vTaskExitCriticalFromISR(x)
 
-#else
+#else   // configNUMBER_OF_CORES
 
     #define portGET_CORE_ID()           0
     #define portYIELD_CORE(xCoreID)     UNUSED(xCoreID)

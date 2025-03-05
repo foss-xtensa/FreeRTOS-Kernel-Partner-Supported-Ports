@@ -776,8 +776,13 @@ https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/13-Symmetric
 
 Important information regarding Xtensa SMP support:
 
-- SMP requirements: 1+ dataram (per-core), MPU (for coherence).
+- SMP requirements: 1+ dataram (per-core), MPU (for coherence), 1 set of 
+  inter-processor interrupts (IPIs) mapped to core interrupts <= EXCM_LEVEL.
   Only coherent LX8 multicore configurations are supported at this time.
+
+- SMP support requires Xtensa toolchain version RJ-2024.4 (fully-patched) or
+  later; version RJ-2025.5 is recommended.  If RJ.4 is detected, the port
+  Makefile will generate an SMP-specific header to set various parameters.
 
 - SMP mode is disabled by default for all configs.  SMP mode is enabled
   by defining configNUMBER_OF_CORES > 1.  For the Xtensa Demo suite, this
@@ -791,7 +796,7 @@ Important information regarding Xtensa SMP support:
   shareable or outer-shareable.  This is usually specified in the MPU table
   that is linked into the executable and used to program the MPU at boot-up.
 
-- MPU software support in FreeRTOS is currently not supported with SMP and
+- MPU software support in FreeRTOS is currently not compatible with SMP and
   must be disabled.  This allows FreeRTOS to maintain a fully-coherent memory
   map such that system state is always available and shared across cores.
 
