@@ -1,6 +1,6 @@
 /*
  * FreeRTOS Kernel <DEVELOPMENT BRANCH>
- * Copyright (C) 2015-2024 Cadence Design Systems, Inc.
+ * Copyright (C) 2015-2025 Cadence Design Systems, Inc.
  * Copyright (C) 2021 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -30,17 +30,20 @@
 #include "xtensa_rtos.h"
 #include "asm-offsets.h"
 #include "portmacro.h"
-
-    .extern pxCurrentTCB
+#include "xtensa_asm.h"
 
 
 /*
 *******************************************************************************
-* Interrupt stack. The size of the interrupt stack is determined by the config
-* parameter "configISR_STACK_SIZE" in FreeRTOSConfig.h
+* For SMP systems, these flag variables must be placed into per-core memory
+* (typically dataram).
 *******************************************************************************
 */
+#if ( configNUMBER_OF_CORES > 1 )
+    .section ".rtos.percpu.data"
+#else
     .data
+#endif
     .align      16
     .global     port_switch_flag
 port_switch_flag:
@@ -56,6 +59,7 @@ port_yield_flag:
 #else
     .text
 #endif
+
 
 /*
 *******************************************************************************
@@ -117,8 +121,8 @@ _frxt_int_enter:
     Manage nesting directly rather than call the generic IntEnter()
     (in windowed ABI we can't call a C function here anyway because PS.EXCM is still set).
     */
+    pintnest a3, a2                     /* a3 <- &port_interruptNesting    */
     movi    a2,  port_xSchedulerRunning
-    movi    a3,  port_interruptNesting
     l32i    a2,  a2, 0                  /* a2 = port_xSchedulerRunning     */
     beqz    a2,  1f                     /* scheduler not running, no tasks */
     l32i    a2,  a3, 0                  /* a2 = port_interruptNesting      */
@@ -126,11 +130,20 @@ _frxt_int_enter:
     s32i    a2,  a3, 0                  /* save nesting count              */
     bnei    a2,  1, .Lnested            /* !=0 before incr, so nested      */
 
-    movi    a2,  pxCurrentTCB
+    pxctcb  a2,  a3                     /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a2,  a2, 0                  /* a2 = current TCB                */
     beqz    a2,  1f
     s32i    a1,  a2, TCB_TOP_OF_STACK_OFF   /* pxCurrentTCB->pxTopOfStack = SP */
     movi    a1,  xt_interrupt_stack_top /* a1 = top of intr stack          */
+    #if ( configNUMBER_OF_CORES > 1 )
+    coreid  a2,  a3
+    beqz    a2,  1f
+    movi    a3,  configISR_STACK_SIZE
+.Lset_int_stack:
+    add     a1,  a1, a3
+    addi    a2,  a2, -1
+    bnez    a2,  .Lset_int_stack
+    #endif
 
 .Lnested:
 1:
@@ -161,8 +174,8 @@ _frxt_int_enter:
     .align  4
 _frxt_int_exit:
 
+    pintnest a3, a2                     /* a3 <- &port_interruptNesting    */
     movi    a2,  port_xSchedulerRunning
-    movi    a3,  port_interruptNesting
     rsil    a0,  XT_IRQ_LOCK_LEVEL      /* lock out interrupts             */
     l32i    a2,  a2, 0                  /* a2 = port_xSchedulerRunning     */
     beqz    a2,  .Lnoswitch             /* scheduler not running, no tasks */
@@ -171,7 +184,7 @@ _frxt_int_exit:
     s32i    a2,  a3, 0                  /* save nesting count              */
     bnez    a2,  .Lnesting              /* !=0 after decr so still nested  */
 
-    movi    a2,  pxCurrentTCB
+    pxctcb  a2,  a3                     /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a2,  a2, 0                  /* a2 = current TCB                */
     beqz    a2,  1f                     /* no task ? go to dispatcher      */
     l32i    a1,  a2, TCB_TOP_OF_STACK_OFF         /* SP = pxCurrentTCB->pxTopOfStack */
@@ -272,12 +285,18 @@ _frxt_dispatch:
     s32i    a3, a2, 0                       /* Indicate thread yield.       */
 
 #ifdef __XTENSA_CALL0_ABI__
+    #if ( configNUMBER_OF_CORES > 1 )
+    coreid  a2,  a3
+    #endif
     call0   vTaskSwitchContext  // Get next TCB to resume
-    movi    a2, pxCurrentTCB
+    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
 #else
-    movi    a2, pxCurrentTCB
+    #if ( configNUMBER_OF_CORES > 1 )
+    coreid  a10, a3
+    #endif
+    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     call8   vTaskSwitchContext  // Get next TCB to resume
-#endif
+#endif  // __XTENSA_CALL0_ABI__
 
     l32i    a3,  a2, 0                      /* a3 = pxCurrentTCB           */
     l32i    a1,  a3, TCB_TOP_OF_STACK_OFF   /* SP = next_TCB->pxTopOfStack */
@@ -296,10 +315,16 @@ _frxt_dispatch:
 
 #if XCHAL_HAVE_XEA2
     #ifdef __XTENSA_CALL0_ABI__
+    #if ( configNUMBER_OF_CORES > 1 )
+    coreid  a2,  a3
+    #endif
     call0   vTaskSwitchContext  // Get next TCB to resume
-    movi    a2, pxCurrentTCB
+    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     #else
-    movi    a2, pxCurrentTCB
+    #if ( configNUMBER_OF_CORES > 1 )
+    coreid  a6,  a3
+    #endif
+    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     call4   vTaskSwitchContext  // Get next TCB to resume
     #endif
     l32i    a3,  a2, 0
@@ -351,7 +376,7 @@ skip_lowering_priv:
 
     #if XCHAL_CP_NUM > 0
     /* Restore CPENABLE from task's co-processor save area. */
-    movi    a3, pxCurrentTCB
+    pxctcb  a3, a2                          /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a3, a3, 0
     l32i    a2, a3, TCB_END_OF_STACK_OFF          /* a2 = base of coproc save area */
     l16ui   a3, a2, XT_CPENABLE         /* a3 = saved CPENABLE value     */
@@ -439,7 +464,7 @@ vPortYield:
     movi    a8, PS_STACK_MASK | PS_DI_MASK  /* disable interrupts.          */
     xps     a2, a8
 
-    movi    a3, pxCurrentTCB
+    pxctcb  a3, a4                          /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a4, a3, 0                       /* a4 = pxCurrentTCB            */
 
 #if XCHAL_CP_NUM > 0
@@ -525,7 +550,7 @@ vPortYield:
     call0   _xt_coproc_savecs
     #endif
 
-    movi    a2,  pxCurrentTCB
+    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     movi    a3,  0
     l32i    a2,  a2, 0                  /* a2 = pxCurrentTCB                */
     s32i    a3,  sp, XT_STK_EXIT        /* 0 to flag as solicited frame     */
@@ -574,7 +599,7 @@ vPortYieldFromInt:
 
 #if XCHAL_CP_NUM > 0
     /* Save CPENABLE in task's co-processor save area, and clear CPENABLE.  */
-    movi    a3, pxCurrentTCB            /* cp_state =                       */
+    pxctcb  a3, a2                      /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a3, a3, 0
     l32i    a2, a3, TCB_END_OF_STACK_OFF
 
@@ -610,7 +635,7 @@ _xt_task_start:
 
 #if XCHAL_HAVE_XEA3
     /* On entry, a8 = task entry point, a9 = top of stack / coproc save area */
-    movi    a0, pxCurrentTCB
+    pxctcb  a0, a3                          /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a0, a0, 0
     s32i    a9, a0, TCB_END_OF_STACK_OFF    /* TCB->pxEndOfStack = CP save area */
     movi    a0, 0                           /* terminate call stack for gdb     */
@@ -622,7 +647,7 @@ _xt_task_start:
     wsr     a0, PS
     l32i    a0, sp, XT_STK_PC               /* retrieve interruptee's PC        */
     wsr     a0, EPC_1
-    movi    a3, pxCurrentTCB
+    pxctcb  a3, a0                          /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a3, a3, 0
     l32i    a0, sp, XT_STK_A0               /* retrieve interruptee's A0        */
     l32i    sp, sp, XT_STK_A1               /* remove interrupt stack frame     */
@@ -650,7 +675,7 @@ _xt_task_start_user:
 #endif
 
     /* On entry, a8 = task entry point, a9 = top of stack / coproc save area */
-    movi    a0, pxCurrentTCB
+    pxctcb  a0, a3                          /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a0, a0, 0
     s32i    a9, a0, TCB_END_OF_STACK_OFF    /* TCB->pxEndOfStack = CP save area */
     rsr     a0, PS
@@ -671,6 +696,7 @@ _xt_task_start_user:
 * May only be called when a task is running, not within an interrupt handler (returns 0 in that case).
 * May only be called from assembly code by the 'call0' instruction. Does NOT obey ABI conventions.
 * Returns in a15 a pointer to the base of the co-processor state save area for the current task.
+* May trash a8, which is already trashed by all callers in xtensa_coproc_handler.S.
 * See the detailed description of the XT_RTOS_ENTER macro in xtensa_rtos.h.
 *
 **********************************************************************************************************
@@ -686,10 +712,10 @@ _xt_task_coproc_state:
     movi    a15, port_xSchedulerRunning /* if (port_xSchedulerRunning                   */
     l32i    a15, a15, 0
     beqz    a15, 2f
-    movi    a15, port_interruptNesting  /* && port_interruptNesting == 0                */
+    pintnest a15, a8                    /* a15 <- &port_interruptNesting                */
     l32i    a15, a15, 0
     bnez    a15, 1f
-    movi    a15, pxCurrentTCB
+    pxctcb  a15, a8                         /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a15, a15, 0                 /* && pxCurrentTCB != 0) {                      */
     beqz    a15, 2f
     l32i    a15, a15, TCB_END_OF_STACK_OFF        /* a15 = pxCurrentTCB->pxEndOfStack             */

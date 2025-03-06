@@ -1,6 +1,6 @@
  /*
  * FreeRTOS Kernel <DEVELOPMENT BRANCH>
- * Copyright (C) 2015-2024 Cadence Design Systems, Inc.
+ * Copyright (C) 2015-2025 Cadence Design Systems, Inc.
  * Copyright (C) 2021 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -48,7 +48,6 @@ extern xt_handler_table_entry _xt_interrupt_table[XCHAL_NUM_INTERRUPTS + 1];
 
 extern int32_t  xt_sw_intnum;
 extern int32_t  port_switch_flag;
-extern uint32_t port_interruptNesting;
 
 static int32_t  xt_wflag;
 
@@ -67,7 +66,7 @@ xt_interrupt_wrapper(void * arg)
     xt_handler               handler;
 
     state = portENTER_CRITICAL_NESTED();
-    port_interruptNesting++;
+    portINCREMENT_INTERRUPT_NESTING_COUNT();
     portEXIT_CRITICAL_NESTED(state);
 
     /* Load handler address and argument from table. Note that the
@@ -92,7 +91,7 @@ xt_interrupt_wrapper(void * arg)
     }
 
     state = portENTER_CRITICAL_NESTED();
-    port_interruptNesting--;
+    portDECREMENT_INTERRUPT_NESTING_COUNT();
     portEXIT_CRITICAL_NESTED(state);
 }
 

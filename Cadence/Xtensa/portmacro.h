@@ -1,6 +1,6 @@
 /*
  * FreeRTOS Kernel <DEVELOPMENT BRANCH>
- * Copyright (C) 2015-2024 Cadence Design Systems, Inc.
+ * Copyright (C) 2015-2025 Cadence Design Systems, Inc.
  * Copyright (C) 2021 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -44,7 +44,11 @@
 
 #include <xtensa/tie/xt_core.h>
 #include <xtensa/hal.h>
-#include <xtensa/config/system.h>	/* required for XSHAL_CLIB */
+#include <xtensa/config/system.h>   /* required for XSHAL_CLIB */
+
+/* required for SMP support */
+#include <xtensa/xtruntime.h>
+#include <xtensa/xtsubsystem.h>
 
 /*-----------------------------------------------------------
  * Port specific definitions.
@@ -112,12 +116,6 @@ portENABLE_INTERRUPTS(void)
 #endif
 }
 
-// Nested critical sections. Nesting managed by FreeRTOS.
-// This is fine for a single core.  TODO: revisit for SMP support.
-// NOTE: consider Espressif solution: GCC/Xtensa_ESP32/include/portmacro.h
-
-#define portCRITICAL_NESTING_IN_TCB	1
-
 extern void vTaskEnterCritical(void);
 extern void vTaskExitCritical(void);
 
@@ -158,7 +156,7 @@ extern void vPortExitCritical(void);
 #endif
 
 // These allow nested interrupt disabling and restoring via local registers or stack.
-// They can be called from interrupts context.
+// They can be called from interrupt context.
 static inline uint32_t
 portENTER_CRITICAL_NESTED(void)
 {
@@ -191,24 +189,138 @@ portEXIT_CRITICAL_NESTED(uint32_t state)
 }
 
 // These FreeRTOS versions are similar to the nested versions above
+#define portSET_INTERRUPT_MASK()                     portENTER_CRITICAL_NESTED()
+#define portCLEAR_INTERRUPT_MASK(state)              portEXIT_CRITICAL_NESTED(state)
 #define portSET_INTERRUPT_MASK_FROM_ISR()            portENTER_CRITICAL_NESTED()
 #define portCLEAR_INTERRUPT_MASK_FROM_ISR(state)     portEXIT_CRITICAL_NESTED(state)
+
 BaseType_t xPortRaisePrivilege( void );
 
 /*-----------------------------------------------------------*/
 
 /* Architecture specifics. */
-#define portSTACK_GROWTH			( -1 )
-#define portTICK_PERIOD_MS			( ( TickType_t ) 1000 / configTICK_RATE_HZ )
+#define portSTACK_GROWTH                ( -1 )
+#define portTICK_PERIOD_MS              ( ( TickType_t ) 1000 / configTICK_RATE_HZ )
 #ifdef configBYTE_ALIGNMENT
-#define portBYTE_ALIGNMENT			configBYTE_ALIGNMENT
+#define portBYTE_ALIGNMENT              configBYTE_ALIGNMENT
 #elif XCHAL_DATA_WIDTH < 16
-#define portBYTE_ALIGNMENT			XCHAL_DATA_WIDTH
+#define portBYTE_ALIGNMENT              XCHAL_DATA_WIDTH
 #else
-#define portBYTE_ALIGNMENT			16
+#define portBYTE_ALIGNMENT              16
 #endif
-#define portNOP()					XT_NOP()
-#define portMEMORY_BARRIER()        XT_MEMW()
+#define portNOP()                       XT_NOP()
+#define portMEMORY_BARRIER()            XT_MEMW()
+/*-----------------------------------------------------------*/
+
+/* Multicore specifics. */
+#define portMAX_CORE_COUNT              8
+
+#ifndef configNUMBER_OF_CORES
+    #define configNUMBER_OF_CORES       1
+#elif ( configNUMBER_OF_CORES < 1 || configNUMBER_OF_CORES > portMAX_CORE_COUNT )
+    #error "Invalid number of cores specified in config!"
+#endif
+
+
+/* FreeRTOS core id is always zero based; set to 0 for single-core case */
+#if ( configNUMBER_OF_CORES > 1 )
+
+/* Various checks to confirm config is compatible with FreeRTOS SMP */
+#if ( !XCHAL_DCACHE_IS_COHERENT || ( XCHAL_SUBSYS_NUM_CORES == 1 ))
+    #error "SMP support requires Coherent Multicore Subsystem"
+#endif
+
+#if !XCHAL_HAVE_PRID
+    #error "SMP support requires PRID"
+#endif
+
+#if portUSING_MPU_WRAPPERS
+    #error "SMP support requires FreeRTOS MPU wrappers to be off"
+#endif
+
+/* Patch to allow RJ.4 toolchain to build correctly for a specific config */
+#include "smp_rj4_patch.h"
+
+#if !XCHAL_SUBSYS_IPI_NUM_SETS
+    #error "SMP support requires at least one set of inter-processor interrupts (IPIs)"
+#endif
+
+/* Patch to allow RJ.4 toolchain to build correctly for a specific config */
+#include "smp_rj4_patch.h"
+
+#if (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C0_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C0 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C1_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C1 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 2) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C2_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C2 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 3) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C3_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C3 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 4) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C4_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C4 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 5) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C5_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C5 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 6) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C6_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C6 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+#if (configNUMBER_OF_CORES >= 7) && (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C7_INTNUM) > XCHAL_EXCM_LEVEL)
+#error IPI S0C7 core interrupt is > XCHAL_EXCM_LEVEL
+#endif
+
+#ifndef configTICK_CORE
+    #define configTICK_CORE             0
+#elif ( configTICK_CORE < 0 || configTICK_CORE >= configNUMBER_OF_CORES )
+    #error "Invalid tick core specified in config!"
+#endif
+
+    #define portGET_CORE_ID()           xthal_get_coreid()
+    #define portYIELD_CORE(xCoreID)     xthal_ipi_trigger(xCoreID)
+    #define portCRITICAL_NESTING_IN_TCB 0   // Nesting managed by port for SMP
+
+    extern xtos_mutex _xt_mutex_ISR;
+    extern xtos_mutex _xt_mutex_task;
+    #define portGET_ISR_LOCK()         xtos_mutex_lock(&_xt_mutex_ISR)
+    #define portRELEASE_ISR_LOCK()     xtos_mutex_unlock(&_xt_mutex_ISR)
+    #define portGET_TASK_LOCK()        xtos_mutex_lock(&_xt_mutex_task)
+    #define portRELEASE_TASK_LOCK()    xtos_mutex_unlock(&_xt_mutex_task)
+
+    extern UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
+    #define portGET_CRITICAL_NESTING_COUNT()          ( uxCriticalNestings[ portGET_CORE_ID() ] )
+    #define portSET_CRITICAL_NESTING_COUNT( x )       ( uxCriticalNestings[ portGET_CORE_ID() ] = ( x ) )
+    #define portINCREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]++ )
+    #define portDECREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]-- )
+
+    extern uint32_t port_interruptNestings[ configNUMBER_OF_CORES ];
+    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNestings[ portGET_CORE_ID() ]++ )
+    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNestings[ portGET_CORE_ID() ]-- )
+
+    extern UBaseType_t vTaskEnterCriticalFromISR(void);
+    extern void vTaskExitCriticalFromISR(UBaseType_t uxSavedInterruptStatus);
+    #define portENTER_CRITICAL_FROM_ISR()   vTaskEnterCriticalFromISR()
+    #define portEXIT_CRITICAL_FROM_ISR(x)   vTaskExitCriticalFromISR(x)
+
+#else   // configNUMBER_OF_CORES
+
+    #define portGET_CORE_ID()           0
+    #define portYIELD_CORE(xCoreID)     UNUSED(xCoreID)
+    #define portCRITICAL_NESTING_IN_TCB 1   // Nesting managed by FreeRTOS fine for 1 core
+
+    #define portGET_ISR_LOCK()
+    #define portRELEASE_ISR_LOCK()
+    #define portGET_TASK_LOCK()
+    #define portRELEASE_TASK_LOCK()
+
+    extern uint32_t port_interruptNesting;
+    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNesting++ )
+    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNesting-- )
+
+#endif  // configNUMBER_OF_CORES
 /*-----------------------------------------------------------*/
 
 /* Fine resolution time */
@@ -219,6 +331,7 @@ BaseType_t xPortRaisePrivilege( void );
 
 /* Kernel utilities. */
 void vPortYield( void );
+void vPortYieldFromInt( void );
 void _frxt_setup_switch( void );
 #define portYIELD()       vPortYield()
 #define portYIELD_FROM_ISR( xHigherPriorityTaskWoken )	\

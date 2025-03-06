@@ -1,6 +1,6 @@
 /*
  * FreeRTOS Kernel <DEVELOPMENT BRANCH>
- * Copyright (C) 2015-2024 Cadence Design Systems, Inc.
+ * Copyright (C) 2015-2025 Cadence Design Systems, Inc.
  * Copyright (C) 2021 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -96,11 +96,28 @@ static volatile uint32_t xt_skip_tick;
 int32_t xt_sw_intnum = -1;
 #endif
 
+#if ( configNUMBER_OF_CORES == 1 )
+
 // Duplicate of inaccessible xSchedulerRunning.
 uint32_t port_xSchedulerRunning = 0U;
 
 // Interrupt nesting level.
 uint32_t port_interruptNesting  = 0U;
+
+#else
+
+// Duplicate of inaccessible xSchedulerRunning.
+uint32_t port_xSchedulerRunning __attribute__((section(".rtos.percpu.data"))) = 0U;
+
+// Interrupt nesting level.
+uint32_t port_interruptNestings[ configNUMBER_OF_CORES ];
+
+UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
+
+xtos_mutex _xt_mutex_ISR;
+xtos_mutex _xt_mutex_task;
+
+#endif
 
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE
 
@@ -134,12 +151,12 @@ static void xt_tick_handler( void )
         // Interrupts upto configMAX_SYSCALL_INTERRUPT_PRIORITY must be
         // disabled before calling xTaskIncrementTick as it accesses the
         // kernel lists.
-        interruptMask = portSET_INTERRUPT_MASK_FROM_ISR();
+        interruptMask = taskENTER_CRITICAL_FROM_ISR();
         {
             ret = xTaskIncrementTick();
             ++xt_tick_count;
         }
-        portCLEAR_INTERRUPT_MASK_FROM_ISR( interruptMask );
+        taskEXIT_CRITICAL_FROM_ISR( interruptMask );
 
         portYIELD_FROM_ISR( ret );
 
@@ -187,6 +204,18 @@ static void xt_tick_timer_stop( void )
     xt_set_ccompare( XT_TIMER_INDEX, 0 );
 }
 
+#if ( configNUMBER_OF_CORES > 1 )
+//-----------------------------------------------------------------------------
+// portYIELD_CORE IPI handler wrapper
+//-----------------------------------------------------------------------------
+static void xt_ipi_yield_wrapper( void * arg )
+{
+    UNUSED(arg);
+    portYIELD_FROM_ISR(1);  // Flag a context switch
+    vPortYieldFromInt();    // Trigger unsolicited switch from ISR
+}
+#endif
+
 //-----------------------------------------------------------------------------
 // Start the scheduler.
 //-----------------------------------------------------------------------------
@@ -195,6 +224,9 @@ BaseType_t xPortStartScheduler( void )
     #if XCHAL_HAVE_XEA3
     extern void xt_sched_handler(void * arg);
     int32_t i;
+    #endif
+    #if (configNUMBER_OF_CORES > 1 )
+    uint32_t c;
     #endif
 
     // Interrupts are disabled at this point and stack contains PS with
@@ -233,10 +265,35 @@ BaseType_t xPortStartScheduler( void )
     #if XCHAL_HAVE_ISL
     XT_WSR_ISL(0);
     #endif
-    #endif
+    #endif  // XCHAL_HAVE_XEA3
 
+    #if ( configNUMBER_OF_CORES > 1 )
+    // Initialize SMP mutexes
+    if (portGET_CORE_ID() == 0) {
+        xtos_mutex_init(&_xt_mutex_ISR);
+        xtos_mutex_init(&_xt_mutex_task);
+    }
+
+    // Configure inter-processor interrupts that can be triggered by other cores;
+    // used for portYIELD_CORE().
+    for (c = 0; c < configNUMBER_OF_CORES; c++) {
+        if (c != portGET_CORE_ID()) {
+            uint32_t ipi_intnum[configNUMBER_OF_CORES] = XCHAL_SUBSYS_IPI_S0_INTLIST;
+            if (!xt_set_interrupt_handler(ipi_intnum[c], xt_ipi_yield_wrapper, NULL)) {
+                return pdFALSE;
+            }
+            xt_interrupt_enable(ipi_intnum[c]);
+        }
+    }
+
+    if (portGET_CORE_ID() == configTICK_CORE) {
+        // Set up and enable timer tick.
+        xt_tick_timer_init();
+    }
+    #else   // configNUMBER_OF_CORES
     // Set up and enable timer tick.
     xt_tick_timer_init();
+    #endif  // configNUMBER_OF_CORES
 
     #if XT_USE_THREAD_SAFE_CLIB
     // Init C library
@@ -250,6 +307,15 @@ BaseType_t xPortStartScheduler( void )
     #endif
 
     port_xSchedulerRunning = 1U;
+
+    #if ( configNUMBER_OF_CORES > 1 )
+    if (portGET_CORE_ID() == 0) {
+        // Release other cores last
+        if (xthal_run_cores(XTSUB_RUN_ALL_CORES)) {
+            return pdFALSE;
+        }
+    }
+    #endif
 
     // Cannot be directly called from C; never returns
     __asm__ volatile ("call0    _frxt_dispatch\n");
@@ -513,6 +579,7 @@ void vPortSuppressTicksAndSleep( TickType_t xExpectedIdleTime )
 
 #if portUSING_MPU_WRAPPERS
 extern void vPortResetPrivilege(BaseType_t previous);
+
 void vPortEnterCritical( void )
 {
     // TODO: handle configALLOW_UNPRIVILEGED_CRITICAL_SECTIONS
@@ -525,7 +592,6 @@ void vPortEnterCritical( void )
     }
     else
     {
-        // TODO: handle port_interruptNesting
         vTaskEnterCritical();
     }
 }
@@ -542,7 +608,6 @@ void vPortExitCritical( void )
     }
     else
     {
-        // TODO: handle port_interruptNesting
         vTaskExitCritical();
     }
 }

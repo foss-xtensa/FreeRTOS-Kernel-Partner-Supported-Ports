@@ -76,8 +76,8 @@ kernel from:
     https://github.com/FreeRTOS/FreeRTOS-Kernel
     https://www.freertos.org/
 
-The Xtensa port files are included in the official package under the 
-"Partner-Supported-Ports" and "Partner-Supported-Demos" submodules, but 
+The Xtensa port files are included in the official package under the
+"Partner-Supported-Ports" and "Partner-Supported-Demos" submodules, but
 may not be the latest versions available.
 
 All source is provided along with a Makefile that works for any host
@@ -110,9 +110,9 @@ Building FreeRTOS for Xtensa
 ----------------------------
 
 To build the FreeRTOS library and the example programs, go into the
-directory 'Demo/.../Cadence_Xtensa_ISS_xt-clang' and use the makefile 
-in that directory. "make all" will build all the examples. There is 
-another makefile in the 'portable/.../Cadence/Xtensa' directory that 
+directory 'Demo/.../Cadence_Xtensa_ISS_xt-clang' and use the makefile
+in that directory. "make all" will build all the examples. There is
+another makefile in the 'portable/.../Cadence/Xtensa' directory that
 builds just the FreeRTOS library.
 
 By default, you will build for the Xtensa instruction set simulator. If
@@ -234,7 +234,7 @@ define this to 1 if either newlib or xclib is detected.
 The space for the per-thread C library context data is allocated within
 the FreeRTOS TCB structure.
 
-The MPU example must be built separately since it requires the FreeRTOS 
+The MPU example must be built separately since it requires the FreeRTOS
 library to be rebuilt with -DportUSING_MPU_WRAPPERS=1 -DportALIGN_SECTIONS
 which is handled by the makefile if you do the following:
 
@@ -764,6 +764,67 @@ Overlay Support
     the application code, and requires liboverlay.a to be specified at link
     time. See the overlay example and the Xtensa system SW reference manual
     for more details.
+
+
+SMP Support For Xtensa LX
+-------------------------
+
+FreeRTOS v11 SMP configuration is supported beginning with Xtensa port
+version 3.10.  General details regarding SMP on FreeRTOS can be found here:
+
+https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/13-Symmetric-multiprocessing-introduction
+
+Important information regarding Xtensa SMP support:
+
+- SMP requirements: 1+ dataram (per-core), MPU (for coherence), 1 set of
+  inter-processor interrupts (IPIs) mapped to core interrupts <= EXCM_LEVEL.
+  Only coherent LX8 multicore configurations are supported at this time.
+
+- SMP support requires Xtensa toolchain version RJ-2024.4 (fully-patched) or
+  later; version RJ-2025.5 is recommended.  If RJ.4 is detected, the port
+  Makefile will generate an SMP-specific header to set various parameters.
+
+- SMP mode is disabled by default for all configs.  SMP mode is enabled
+  by defining configNUMBER_OF_CORES > 1.  For the Xtensa Demo suite, this
+  setting is found in common/config_files/FreeRTOSConfig.h.
+
+- SMP support relies on coherent shared memory being enabled prior to FreeRTOS
+  initialization.  It is enabled by default in the LX8 multicore boot code.
+
+- MPU hardware support is required for the Xtensa coherence protocol to
+  function, as all coherent memory regions must be configured as inner-
+  shareable or outer-shareable.  This is usually specified in the MPU table
+  that is linked into the executable and used to program the MPU at boot-up.
+
+- MPU software support in FreeRTOS is currently not compatible with SMP and
+  must be disabled.  This allows FreeRTOS to maintain a fully-coherent memory
+  map such that system state is always available and shared across cores.
+
+- SMP examples are provided in common/application_code/cadence_code/xt_smp.c
+  and common/application_code/cadence_code/xt_mc_demo.c and can be built
+  by running "make SMP=1" in Cadence_Xtensa_ISS_xt-clang/.
+
+- A small number of global variables within the port (e.g. for interrupt
+  handling and scheduling) must be allocated per-core, and by default are
+  placed in a section named ".rtos.percpu.data".  The CLIB reentrancy data
+  are similarly allocated per-core, and by default are placed in the section
+  ".clib.percpu.bss".  When linked with the "sim-mc" LSP, these objects get
+  placed into per-core dataram by default.  Typically, around 400 bytes of
+  dataram are required for these structures.
+
+  NOTE: If only one executable is loaded onto one core, use a romable LSP to
+  ensure .rtos.percpu.data are properly unpacked into each core's dataram,
+  e.g. by running "make SMP=1 LSP=sim-mc-rom" in Cadence_Xtensa_ISS_xt-clang/.
+
+- The Xtensa system interrupt stack (mentioned above) is replicated per-core
+  in order to properly handle interrupts on a shared-memory system.  These
+  stacks are typically too large to be an efficient use of dataram, so they
+  are replicated and placed alongside other default .data objects.
+
+- A single interrupt dispatch table is shared for all cores in the SMP system.
+  Therefore, registering an ISR on one core will result in the same handler
+  being registered for that interrupt on all cores.  However, interrupts are
+  still enabled and disabled on a per-core basis.
 
 
 -End-

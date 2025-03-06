@@ -13,6 +13,7 @@ AR          = xt-ar
 ISS         = xt-run
 XT_CORE     = $(patsubst %-params,%,$(notdir $(shell xt-clang --show-config=core)))
 CONFIGDIR   = $(shell xt-clang --show-config=config)
+PARAMFILE   = $(CONFIGDIR)$(S)config$(S)default-params
 
 # For platform-specific commands
 
@@ -28,6 +29,21 @@ endif
 # Build with overlay support
 ifeq ($(OVERLAY),1)
 OVLYFLAGS   = -DXT_USE_THREAD_SAFE_CLIB=1 -DXT_USE_OVLY=1
+endif
+
+# Build with SMP support
+ifeq ($(SMP),1)
+SWVER       = $(word 3, $(shell $(GREP) SWToolsVersion $(PARAMFILE)))
+PRERJ5      = $(shell expr $(SWVER) \< 1505000)
+ifeq ($(PRERJ5),1)
+NCORES      = $(word 3, $(shell $(GREP) NumOfCores $(PARAMFILE)))
+IPISETS     = $(word 3, $(shell $(GREP) CoreConnectIPISetCount $(PARAMFILE)))
+EXTINTS     = $(word 3, $(shell $(GREP) InterruptExtCount $(PARAMFILE)))
+IPISTART    = $(shell expr $(EXTINTS) \- $(NCORES) \* $(IPISETS))
+ALLCORES    = 0 1 2 3 4 5 6 7
+IPISEDSTR   = $(foreach core,$(ALLCORES),-e 's/ipi$(core)/XCHAL_EXTINT$(shell expr $(IPISTART) \+ $(core))_NUM/')
+IPISEDSTR  += -e 's/ipisets/$(IPISETS)/'
+endif
 endif
 
 SRCROOT     = $(subst /,$(S),$(CURDIR))
@@ -114,15 +130,23 @@ $(BLDDIR)/.mkdir :
 $(BLDDIR)/reent.h : $(BLDDIR)/.mkdir
 	-$(CP) $(subst /,$(S),$(CONFIGDIR))$(S)xtensa-elf$(S)include$(S)sys$(S)reent.h $(BLDDIR)$(S)reent.h
 
-$(LIB_O_LIST) : $(BLDDIR)/asm-offsets.h
+$(LIB_O_LIST) : $(BLDDIR)/asm-offsets.h $(BLDDIR)/smp_rj4_patch.h
 
 $(OSLIB) : $(LIB_O_LIST)
 	$(AR) -rs $@ $^
 
-$(BLDDIR)/asm-offsets.h : asm-offsets.c $(BLDDIR)/.mkdir
+$(BLDDIR)/asm-offsets.h : asm-offsets.c $(BLDDIR)/.mkdir $(BLDDIR)/smp_rj4_patch.h
 	$(CC) $(CCFLAGS) $(IFLAGS) -MD -MF $(subst .h,.d,$@) -MT $@ -ffunction-sections -fdata-sections -Wl,--gc-sections -o $@.exe $<
 	$(ISS) $@.exe > $@
 	$(RM) $(subst /,$(S),$@.exe)
+
+ifeq ($(PRERJ5),1)
+$(BLDDIR)/smp_rj4_patch.h : smp_rj4_patch.h.in $(BLDDIR)/.mkdir
+	sed $(IPISEDSTR) $< > $@
+else
+$(BLDDIR)/smp_rj4_patch.h :
+	@echo "/* Tools version >= RJ.5; no patch required */" > $@
+endif
 
 $(BLDDIR)/%.o : %.c $(BLDDIR)/.mkdir
 	$(CC) $(CCFLAGS) $(IFLAGS) $(FLAGS_$*) -mtext-section-literals -MD -MF $(subst .o,.d,$@) -c -o $@ $<
