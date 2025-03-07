@@ -96,18 +96,15 @@ static volatile uint32_t xt_skip_tick;
 int32_t xt_sw_intnum = -1;
 #endif
 
-#if ( configNUMBER_OF_CORES == 1 )
-
 // Duplicate of inaccessible xSchedulerRunning.
 uint32_t port_xSchedulerRunning = 0U;
+
+#if ( configNUMBER_OF_CORES == 1 )
 
 // Interrupt nesting level.
 uint32_t port_interruptNesting  = 0U;
 
 #else
-
-// Duplicate of inaccessible xSchedulerRunning.
-uint32_t port_xSchedulerRunning __attribute__((section(".rtos.percpu.data"))) = 0U;
 
 // Interrupt nesting level.
 uint32_t port_interruptNestings[ configNUMBER_OF_CORES ];
@@ -272,6 +269,11 @@ BaseType_t xPortStartScheduler( void )
     if (portGET_CORE_ID() == 0) {
         xtos_mutex_init(&_xt_mutex_ISR);
         xtos_mutex_init(&_xt_mutex_task);
+    } else {
+        // Ensure core 0 started first.
+        // NOTE: if this assert triggers, ensure all nonzero cores start in RunStall.
+        // On XTSC, that may entail setting the RunOnReset InitValue in subsys.yml.
+        configASSERT( port_xSchedulerRunning );
     }
 
     // Configure inter-processor interrupts that can be triggered by other cores;
