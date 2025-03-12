@@ -141,7 +141,7 @@ $(BLDDIR)/asm-offsets.h : asm-offsets.c $(BLDDIR)/.mkdir $(BLDDIR)/smp_rj4_patch
 	$(RM) $(subst /,$(S),$@.exe)
 
 ifeq ($(PRERJ5),1)
-$(BLDDIR)/smp_rj4_patch.h : smp_rj4_patch.h.in $(BLDDIR)/.mkdir
+$(BLDDIR)/smp_rj4_patch.h : $(SRCROOT)/smp_rj4_patch.h.in $(BLDDIR)/.mkdir
 	sed $(IPISEDSTR) $< > $@
 else
 $(BLDDIR)/smp_rj4_patch.h :
