@@ -238,15 +238,13 @@ BaseType_t xPortRaisePrivilege( void );
     #error "SMP support requires FreeRTOS MPU wrappers to be off"
 #endif
 
-/* Patch to allow RJ.4 toolchain to build correctly for a specific config */
-#include "smp_rj4_patch.h"
+#if (XCHAL_SW_VERSION < 1505000)
+    #error "SMP requires Xtensa toolchain RJ.5 or later"
+#endif
 
 #if !XCHAL_SUBSYS_IPI_NUM_SETS
     #error "SMP support requires at least one set of inter-processor interrupts (IPIs)"
 #endif
-
-/* Patch to allow RJ.4 toolchain to build correctly for a specific config */
-#include "smp_rj4_patch.h"
 
 #if (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C0_INTNUM) > XCHAL_EXCM_LEVEL)
 #error IPI S0C0 core interrupt is > XCHAL_EXCM_LEVEL
