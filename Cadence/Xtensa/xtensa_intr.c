@@ -33,6 +33,7 @@
  */
 
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <xtensa/config/core.h>
 #include <xtensa/core-macros.h>
@@ -41,6 +42,8 @@
 #endif
 
 #include "xtensa_api.h"
+
+#include "FreeRTOS.h"
 
 
 #if XCHAL_HAVE_EXCEPTIONS
@@ -56,6 +59,11 @@ void
 xt_unhandled_exception( XtExcFrame * frame )
 {
     (void) frame;
+#if ( configNUMBER_OF_CORES > 1 )
+    if (portGET_CORE_ID() > 0) {
+        _exit( -1 );
+    }
+#endif
     exit( -1 );
 }
 
@@ -120,6 +128,11 @@ void
 xt_unhandled_interrupt( void * arg )
 {
     (void) arg;
+#if ( configNUMBER_OF_CORES > 1 )
+    if (portGET_CORE_ID() > 0) {
+        _exit( -1 );
+    }
+#endif
     exit( -1 );
 }
 

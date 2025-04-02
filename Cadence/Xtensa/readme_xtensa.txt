@@ -780,9 +780,7 @@ Important information regarding Xtensa SMP support:
   inter-processor interrupts (IPIs) mapped to core interrupts <= EXCM_LEVEL.
   Only coherent LX8 multicore configurations are supported at this time.
 
-- SMP support requires Xtensa toolchain version RJ-2024.4 (fully-patched) or
-  later; version RJ-2025.5 is recommended.  If RJ.4 is detected, the port
-  Makefile will generate an SMP-specific header to set various parameters.
+- SMP support requires Xtensa toolchain version RJ-2025.5 or newer.
 
 - SMP mode is disabled by default for all configs.  SMP mode is enabled
   by defining configNUMBER_OF_CORES > 1.  For the Xtensa Demo suite, this
