@@ -207,9 +207,11 @@ static void xt_tick_timer_stop( void )
 //-----------------------------------------------------------------------------
 static void xt_ipi_yield_wrapper( void * arg )
 {
+    // Flag a context switch and exit; _Interrupt() will do the rest.
+    // Do NOT call vPortYieldFromInt() directly, which would result in twice
+    // saving and clearing CPENABLE, corrupting the coprocessor state.
     UNUSED(arg);
-    portYIELD_FROM_ISR(1);  // Flag a context switch
-    vPortYieldFromInt();    // Trigger unsolicited switch from ISR
+    portYIELD_FROM_ISR(1);  // Flag a context switch and exit
 }
 #endif
 

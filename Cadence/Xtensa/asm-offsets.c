@@ -19,6 +19,9 @@ int main(void)
 #if ( ( portSTACK_GROWTH > 0 ) || ( configRECORD_STACK_HIGH_ADDRESS == 1 ) )
     DEFINE(TCB_END_OF_STACK_OFF, offsetof(TCB_t, pxEndOfStack));
 #endif
+#if ( ( configUSE_CORE_AFFINITY == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
+    DEFINE(TCB_CORE_AFFINITY_MASK_OFF, offsetof(TCB_t, uxCoreAffinityMask));
+#endif
 #if ( configUSE_C_RUNTIME_TLS_SUPPORT == 1 )
     DEFINE(TCB_IMPURE_PTR_OFF, offsetof(TCB_t, xTLSBlock));
 #endif

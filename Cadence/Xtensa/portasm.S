@@ -603,11 +603,37 @@ vPortYieldFromInt:
     l32i    a3, a3, 0
     l32i    a2, a3, TCB_END_OF_STACK_OFF
 
-    rsr     a3, CPENABLE
-    s16i    a3, a2, XT_CPENABLE         /* cp_state->cpenable = CPENABLE;   */
-    movi    a3, 0
-    wsr     a3, CPENABLE                /* disable all co-processors        */
-#endif
+    rsr     a4, CPENABLE
+
+  #if ( configNUMBER_OF_CORES > 1 )
+    beqz    a4, .Lnocp_save
+
+    #if ( configUSE_CORE_AFFINITY == 1 )
+    /* Task can run on other cores if affinity mask has multiple bits set */
+    l32i    a3, a3, TCB_CORE_AFFINITY_MASK_OFF
+    beqz    a3, .Lcp_save
+    addi    a5, a3, -1
+    bnone   a3, a5, .Lnocp_save         /* mult bits set if ((x & (x-1)) != 0) */
+.Lcp_save:
+    #endif /* ( configUSE_CORE_AFFINITY == 1 ) */
+
+    #ifdef __XTENSA_CALL0_ABI__
+    /* No need to save a0 since we will call _frxt_dispatch later, which doesn't return */
+    call0   _xt_coproc_saveall
+    #else
+    mov     a6, a2
+    call4   _xt_coproc_saveall
+    #endif  /* __XTENSA_CALL0_ABI__ */
+    j       .Lcp_done
+.Lnocp_save:
+  #endif /* ( configNUMBER_OF_CORES > 1 ) */
+
+    s16i    a4, a2, XT_CPENABLE         /* cp_state->cpenable = CPENABLE;   */
+
+    movi    a4, 0
+    wsr     a4, CPENABLE                /* disable all co-processors        */
+.Lcp_done:
+#endif /* XCHAL_CP_NUM > 0 */
 
 #ifdef __XTENSA_CALL0_ABI__
     /* Tail-call dispatcher. */

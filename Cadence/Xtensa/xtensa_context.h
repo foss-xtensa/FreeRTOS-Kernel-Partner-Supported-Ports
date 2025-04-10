@@ -272,6 +272,14 @@ XSTRUCT_END(XtExcFrame)
   co-processor state (which can be quite large) and in particular remove that
   overhead from interrupt handlers.
 
+  An exception to this rule applies to SMP configurations. If a thread using
+  a coprocessor is pinned to a specific core (using the task "Affinity" APIs)
+  then the usual "lazy" co-processor context switching is used. However, if a
+  task can migrate to another core, its co-processor state needs to be saved
+  before it is swapped out since it may be required on a different core,
+  increasing context switching latency. For this reason, it is recommended
+  (but not required) that all tasks using a co-processor be pinned to a core.
+
   The co-processor state save area may be in any convenient per-thread location
   such as in the thread control block or above the thread stack area. It need
   not be in the interrupt stack frame since interrupts don't use co-processors.
@@ -287,7 +295,7 @@ XSTRUCT_END(XtExcFrame)
     When a thread solicits a context-swtich, its CPENABLE is cleared - the
     compiler has saved the (caller-saved) co-proc state if it needs to.
     When a non-running thread loses ownership of a CP, its bit is cleared.
-    When a thread runs, it's XT_CPENABLE is loaded into the CPENABLE reg.
+    When a thread runs, its XT_CPENABLE is loaded into the CPENABLE reg.
     Avoids co-processor exceptions when no change of ownership is needed.
 
   XT_CPSTORED

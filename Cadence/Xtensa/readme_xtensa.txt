@@ -776,9 +776,17 @@ https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/13-Symmetric
 
 Important information regarding Xtensa SMP support:
 
-- SMP requirements: 1+ dataram (per-core), MPU (for coherence), 1 set of
-  inter-processor interrupts (IPIs) mapped to core interrupts <= EXCM_LEVEL.
-  Only coherent LX8 multicore configurations are supported at this time.
+- Core configuration requirements for FreeRTOS SMP:
+
+  1. 1+ dataram (per-core), 400 bytes minimum (see below)
+  2. MPU hardware (for coherence)
+  3. 1 set of inter-processor interrupts (IPIs) <= EXCM_LEVEL
+  4. Only coherent LX8 multicore configurations are supported at this time;
+     as such, the exclusive access option is subsequently required
+  5. Unrelated to SMP, 1 timer per core <= EXCM_LEVEL and 
+     1 software interrupt per core <= EXCM_LEVEL are required
+  6. Xtensa C library (xclib) software support is required;
+     newlib is not currently supported for SMP builds
 
 - SMP support requires Xtensa toolchain version RJ-2025.5 or newer.
 
@@ -798,6 +806,15 @@ Important information regarding Xtensa SMP support:
   must be disabled.  This allows FreeRTOS to maintain a fully-coherent memory
   map such that system state is always available and shared across cores.
 
+- Overlay software support in FreeRTOS is currently not compatible with SMP
+  and must be disabled.
+
+- FreeRTOS manages coprocessor state through "lazy"/on-demand context switches
+  for efficiency, as described in xtensa_context.h.  On SMP systems, any tasks
+  that reference coprocessor state should be pinned to a specific core to
+  minimize unsolicited context switch overhead; otherwise, full coprocessor
+  state will be saved and restored to ensure CP state is coherent across cores.
+
 - SMP examples are provided in common/application_code/cadence_code/xt_smp.c
   and common/application_code/cadence_code/xt_mc_demo.c and can be built
   by running "make SMP=1" in Cadence_Xtensa_ISS_xt-clang/.
@@ -807,8 +824,8 @@ Important information regarding Xtensa SMP support:
   placed in a section named ".rtos.percpu.data".  The CLIB reentrancy data
   are similarly allocated per-core, and by default are placed in the section
   ".clib.percpu.bss".  When linked with the "sim-mc" LSP, these objects get
-  placed into per-core dataram by default.  Typically, around 400 bytes of
-  dataram are required for these structures.
+  placed into per-core dataram by default.  Typical dataram requirements for
+  these structures are listed above.
 
   NOTE: If only one executable is loaded onto one core, use a romable LSP to
   ensure .rtos.percpu.data are properly unpacked into each core's dataram,
