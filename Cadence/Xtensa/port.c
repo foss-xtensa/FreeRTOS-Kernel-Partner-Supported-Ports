@@ -282,6 +282,10 @@ BaseType_t xPortStartScheduler( void )
         configASSERT( port_xSchedulerRunning );
     }
 
+    // Limit the number of cacheops to prevent hangs in case the test uses large 
+    // number of CacheOPs at the same time on multiple cores
+    xthal_L2_prefetch_set_limit(XCHAL_L2CC_MAX_REQ/2);
+
     // Configure inter-processor interrupts that can be triggered by other cores;
     // used for portYIELD_CORE().
     for (c = 0; c < configNUMBER_OF_CORES; c++) {

@@ -124,7 +124,7 @@ $(OSLIB) : $(LIB_O_LIST)
 	$(AR) -rs $@ $^
 
 $(BLDDIR)/asm-offsets.h : asm-offsets.c $(BLDDIR)/.mkdir
-	$(CC) $(CCFLAGS) $(IFLAGS) -MD -MF $(subst .h,.d,$@) -MT $@ -ffunction-sections -fdata-sections -Wl,--gc-sections -o $@.exe $<
+	$(CC) $(CCFLAGS) $(IFLAGS) -MD -MF $(subst .h,.d,$@) -MT $@ -ffunction-sections -fdata-sections -Wl,--gc-sections -o $@.exe $< -lxtutil
 	$(ISS) $@.exe > $@
 	$(RM) $(subst /,$(S),$@.exe)
 
