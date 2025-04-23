@@ -136,7 +136,7 @@ _frxt_int_enter:
     s32i    a1,  a2, TCB_TOP_OF_STACK_OFF   /* pxCurrentTCB->pxTopOfStack = SP */
     movi    a1,  xt_interrupt_stack_top /* a1 = top of intr stack          */
     #if ( configNUMBER_OF_CORES > 1 )
-    coreid  a2,  a3
+    coreid  a2
     beqz    a2,  1f
     movi    a3,  configISR_STACK_SIZE
 .Lset_int_stack:
@@ -286,13 +286,13 @@ _frxt_dispatch:
 
 #ifdef __XTENSA_CALL0_ABI__
     #if ( configNUMBER_OF_CORES > 1 )
-    coreid  a2,  a3
+    coreid  a2
     #endif
     call0   vTaskSwitchContext  // Get next TCB to resume
     pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
 #else
     #if ( configNUMBER_OF_CORES > 1 )
-    coreid  a10, a3
+    coreid  a10
     #endif
     pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     call8   vTaskSwitchContext  // Get next TCB to resume
@@ -316,13 +316,13 @@ _frxt_dispatch:
 #if XCHAL_HAVE_XEA2
     #ifdef __XTENSA_CALL0_ABI__
     #if ( configNUMBER_OF_CORES > 1 )
-    coreid  a2,  a3
+    coreid  a2
     #endif
     call0   vTaskSwitchContext  // Get next TCB to resume
     pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     #else
     #if ( configNUMBER_OF_CORES > 1 )
-    coreid  a6,  a3
+    coreid  a6
     #endif
     pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     call4   vTaskSwitchContext  // Get next TCB to resume

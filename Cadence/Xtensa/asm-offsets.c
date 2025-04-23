@@ -25,4 +25,7 @@ int main(void)
 #if ( configUSE_C_RUNTIME_TLS_SUPPORT == 1 )
     DEFINE(TCB_IMPURE_PTR_OFF, offsetof(TCB_t, xTLSBlock));
 #endif
+#if ( configNUMBER_OF_CORES > 1 )
+    DEFINE(SMP_PERCORE_INTNEST_OFF, offsetof(xt_percore_data_t, port_interruptNestings));
+#endif
 }

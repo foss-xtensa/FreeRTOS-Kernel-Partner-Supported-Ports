@@ -41,6 +41,7 @@
 #ifndef __ASSEMBLER__
 
 #include <stdint.h>
+#include <assert.h>
 
 #include <xtensa/tie/xt_core.h>
 #include <xtensa/hal.h>
@@ -72,7 +73,7 @@
 
 typedef portSTACK_TYPE                 StackType_t;
 typedef portBASE_TYPE                  BaseType_t;
-typedef unsigned portBASE_TYPE	UBaseType_t;
+typedef unsigned portBASE_TYPE         UBaseType_t;
 
 #if( configTICK_TYPE_WIDTH_IN_BITS == TICK_TYPE_WIDTH_16_BITS )
 	typedef uint16_t TickType_t;
@@ -277,6 +278,23 @@ BaseType_t xPortRaisePrivilege( void );
     #error "Invalid tick core specified in config!"
 #endif
 
+    /* The Xtensa SMP port maintains an array of xt_percore_data_t structures,
+     * which are padded to a cache line boundary.  This prevents cache thrashing
+     * since various members are read or written by their own core.  If new fields
+     * are added, XT_PERCORE_DATA_SIZE must be adjusted accordingly.
+     */
+    #define XT_PERCORE_DATA_SIZE        (sizeof(UBaseType_t) + 12)
+
+    typedef struct xt_percore_data {
+        uint32_t port_interruptNestings;    // First field for asm efficiency
+        UBaseType_t uxCriticalNestings;
+        uint32_t port_switch_flag;
+        uint32_t port_yield_flag;
+        uint8_t  pad[XCHAL_DCACHE_LINESIZE - XT_PERCORE_DATA_SIZE];
+    } xt_percore_data_t;
+
+    static_assert( sizeof(xt_percore_data_t) == XCHAL_DCACHE_LINESIZE, "Incorrect xt_percore_data padding" );
+
     #define portGET_CORE_ID()           xthal_get_coreid()
     #define portYIELD_CORE(xCoreID)     xthal_ipi_trigger(xCoreID)
     #define portCRITICAL_NESTING_IN_TCB 0   // Nesting managed by port for SMP
@@ -288,15 +306,16 @@ BaseType_t xPortRaisePrivilege( void );
     #define portGET_TASK_LOCK()        xtos_mutex_lock(&_xt_mutex_task)
     #define portRELEASE_TASK_LOCK()    xtos_mutex_unlock(&_xt_mutex_task)
 
-    extern UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
-    #define portGET_CRITICAL_NESTING_COUNT()          ( uxCriticalNestings[ portGET_CORE_ID() ] )
-    #define portSET_CRITICAL_NESTING_COUNT( x )       ( uxCriticalNestings[ portGET_CORE_ID() ] = ( x ) )
-    #define portINCREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]++ )
-    #define portDECREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]-- )
+    // uxCriticalNestings maintained within per-core data
+    extern xt_percore_data_t _xt_percore[ configNUMBER_OF_CORES ];
+    #define portGET_CRITICAL_NESTING_COUNT()          ( _xt_percore[ portGET_CORE_ID() ].uxCriticalNestings )
+    #define portSET_CRITICAL_NESTING_COUNT( x )       ( (_xt_percore[ portGET_CORE_ID() ].uxCriticalNestings) = ( x ) )
+    #define portINCREMENT_CRITICAL_NESTING_COUNT()    ( (_xt_percore[ portGET_CORE_ID() ].uxCriticalNestings) ++ )
+    #define portDECREMENT_CRITICAL_NESTING_COUNT()    ( (_xt_percore[ portGET_CORE_ID() ].uxCriticalNestings) -- )
 
-    extern uint32_t port_interruptNestings[ configNUMBER_OF_CORES ];
-    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNestings[ portGET_CORE_ID() ]++ )
-    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( port_interruptNestings[ portGET_CORE_ID() ]-- )
+    // port_interruptNestings maintained within per-core data
+    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( (_xt_percore[ portGET_CORE_ID() ].port_interruptNestings) ++ )
+    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( (_xt_percore[ portGET_CORE_ID() ].port_interruptNestings) -- )
 
     extern UBaseType_t vTaskEnterCriticalFromISR(void);
     extern void vTaskExitCriticalFromISR(UBaseType_t uxSavedInterruptStatus);

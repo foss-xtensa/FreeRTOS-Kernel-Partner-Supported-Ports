@@ -42,16 +42,14 @@
 
 /*
 *******************************************************************************
-* Macro to return core ID into regieter r; trashes register t on some configs.
+* Macro to return core ID into regieter r.
 * Useful for assembly implementations of xthal_get_coreid().
 *******************************************************************************
 */
-    .macro  coreid  r, t
+    .macro  coreid  r
     rsr.prid    \r
 #if XCHAL_SUBSYS_CORE_ID_BITS
-    // TODO: try and use extui to save 1 instruction...
-    movi    \t,  XCHAL_SUBSYS_CORE_ID_MASK
-    and     \r, \r, \t
+    extui   \r,  \r, 0, XCHAL_SUBSYS_CORE_ID_BITS
 #endif
     .endm
 
@@ -60,7 +58,7 @@
 /*
 *******************************************************************************
 * Macro to load a pointer to the current core's current TCB into register r;
-* trashes register t on SMP configurations.
+* trashes register t and places coreid in it on SMP configurations.
 *******************************************************************************
 */
 #if XT_SMP_MACROS
@@ -71,7 +69,7 @@
 
     .macro  pxctcb  r, t
 #if XT_SMP_MACROS
-    coreid  \t,  \r
+    coreid  \t
     movi    \r,  pxCurrentTCBs
     addx4   \r,  \t, \r
 #else
@@ -86,16 +84,22 @@
 *******************************************************************************
 */
 #if XT_SMP_MACROS
-    .extern port_interruptNestings
+    // Defined in C as: xt_percore_data_t _xt_percore[ configNUMBER_OF_CORES ];
+    // where sizeof(xt_percore_data_t) == XCHAL_DCACHE_LINESIZE
+    .extern _xt_percore
 #else
     .extern port_interruptNesting
 #endif
 
     .macro  pintnest    r, t
 #if XT_SMP_MACROS
-    coreid  \t,  \r
-    movi    \r,  port_interruptNestings
-    addx4   \r,  \t, \r
+    coreid  \t
+    movi    \r,  _xt_percore
+    slli    \t,  \t, XCHAL_DCACHE_LINEWIDTH
+    add     \r,  \r, \t
+ #if (SMP_PERCORE_INTNEST_OFF > 0)
+    addi    \r,  \r, SMP_PERCORE_INTNEST_OFF
+ #endif
 #else
     movi    \r,  port_interruptNesting
 #endif

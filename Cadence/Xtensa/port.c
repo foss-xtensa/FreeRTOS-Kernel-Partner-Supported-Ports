@@ -106,10 +106,9 @@ uint32_t port_interruptNesting  = 0U;
 
 #else
 
-// Interrupt nesting level.
-uint32_t port_interruptNestings[ configNUMBER_OF_CORES ];
-
-UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
+// Interrupt nesting level and uxCriticalNestings contained
+// within this per-core data structure
+xt_percore_data_t _xt_percore[ configNUMBER_OF_CORES ];
 
 xtos_mutex _xt_mutex_ISR;
 xtos_mutex _xt_mutex_task;
