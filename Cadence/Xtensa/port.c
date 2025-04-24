@@ -101,14 +101,15 @@ uint32_t port_xSchedulerRunning = 0U;
 
 #if ( configNUMBER_OF_CORES == 1 )
 
-// Interrupt nesting level.
-uint32_t port_interruptNesting  = 0U;
+// Interrupt nesting level and task switch flag maintained together.
+// Initialized to 0 during BSS init.
+xt_internal_data_t _xt_intdata;
 
 #else
 
-// Interrupt nesting level and uxCriticalNestings contained
-// within this per-core data structure
-xt_percore_data_t _xt_percore[ configNUMBER_OF_CORES ];
+// Interrupt variables and uxCriticalNestings contained within this
+// per-core data structure.  Initialized to 0 during BSS init.
+xt_internal_data_t _xt_intdata[ configNUMBER_OF_CORES ];
 
 xtos_mutex _xt_mutex_ISR;
 xtos_mutex _xt_mutex_task;

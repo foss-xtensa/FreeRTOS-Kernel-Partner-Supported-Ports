@@ -436,11 +436,11 @@ XSTRUCT_END(XtExcFrame)
 
     // Check scheduler state and interrupt nest state.
 
-    pintnest a9,  a8                            // a9 <- &port_interruptNesting
+    pintdata a9,  a8                            // a9 <- &port_interruptNesting
     movi     a8,  port_xSchedulerRunning
     l32i     a8,  a8, 0                         // a8 <- port_xSchedulerRunning
     beqz     a8,  .Lnested                      // scheduler not running, no tasks
-    l32i     a8,  a9, 0                         // a8 <- port_interruptNesting
+    l32i     a8,  a9, PORTINT_NEST_OFF          // a8 <- port_interruptNesting
     bnez     a8,  .Lnested                      // != 0 means nested, skip ahead
     movi     a8,  port_yield_flag
     l32i     a9,  a8, 0                         // a9 <- port_yield_flag

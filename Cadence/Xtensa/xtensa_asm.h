@@ -57,8 +57,8 @@
 
 /*
 *******************************************************************************
-* Macro to load a pointer to the current core's current TCB into register r;
-* trashes register t and places coreid in it on SMP configurations.
+* Macro to load a pointer to the current core's current TCB into register r.
+* NOTE: Trashes register t and places coreid in it on SMP configurations.
 *******************************************************************************
 */
 #if XT_SMP_MACROS
@@ -79,29 +79,29 @@
 
 /*
 *******************************************************************************
-* Macro to load a pointer to the current core's port_interruptNesting variable;
-* trashes register t on SMP configurations.
+* Macro to load a pointer to the current core's xt_internal_data_t block,
+* which contains the port_interruptNesting (first field) and port_switch_flag
+* variables, along with other data on SMP configurations.
+* NOTE: Trashes register t on SMP configurations.
 *******************************************************************************
 */
 #if XT_SMP_MACROS
-    // Defined in C as: xt_percore_data_t _xt_percore[ configNUMBER_OF_CORES ];
-    // where sizeof(xt_percore_data_t) == XCHAL_DCACHE_LINESIZE
-    .extern _xt_percore
+    // Defined in C as: xt_internal_data_t _xt_intdata[ configNUMBER_OF_CORES ];
+    // where sizeof(xt_internal_data_t ) == XCHAL_DCACHE_LINESIZE
+    .extern _xt_intdata
 #else
-    .extern port_interruptNesting
+    // Defined in C as: xt_internal_data_t _xt_intdata;
+    .extern _xt_intdata
 #endif
 
-    .macro  pintnest    r, t
+    .macro  pintdata    r, t
 #if XT_SMP_MACROS
     coreid  \t
-    movi    \r,  _xt_percore
+    movi    \r,  _xt_intdata
     slli    \t,  \t, XCHAL_DCACHE_LINEWIDTH
     add     \r,  \r, \t
- #if (SMP_PERCORE_INTNEST_OFF > 0)
-    addi    \r,  \r, SMP_PERCORE_INTNEST_OFF
- #endif
 #else
-    movi    \r,  port_interruptNesting
+    movi    \r,  _xt_intdata
 #endif
     .endm
 
