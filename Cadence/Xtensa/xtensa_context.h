@@ -436,11 +436,11 @@ XSTRUCT_END(XtExcFrame)
 
     // Check scheduler state and interrupt nest state.
 
-    pintdata a9,  a8                            // a9 <- &port_interruptNesting
+    pintdata a10, a8                            // a10 <- &port_interruptNesting
     movi     a8,  port_xSchedulerRunning
     l32i     a8,  a8, 0                         // a8 <- port_xSchedulerRunning
     beqz     a8,  .Lnested                      // scheduler not running, no tasks
-    l32i     a8,  a9, PORTINT_NEST_OFF          // a8 <- port_interruptNesting
+    l32i     a8,  a10, PORTINT_NEST_OFF         // a8 <- port_interruptNesting
     bnez     a8,  .Lnested                      // != 0 means nested, skip ahead
     movi     a8,  port_yield_flag
     l32i     a9,  a8, 0                         // a9 <- port_yield_flag
@@ -452,11 +452,10 @@ XSTRUCT_END(XtExcFrame)
     pxctcb   a8,  a9                            // pxCurrentTCB or pxCurrentTCBs[]
     l32i     a9,  a8, 0                         // a9 <- pxCurrentTCB
     beqz     a9,  .Lsched                       // no current, go to scheduler
-    movi    a10,  port_switch_flag
-    l32i    a11, a10, 0                         // a11 <- port_switch_flag
+    l32i    a11, a10, PORTINT_SWITCH_OFF        // a11 <- port_switch_flag
     beqz    a11,  .Lnested                      // = 0 means no switch
     movi    a11,  0
-    s32i    a11, a10, 0                         // zero out for next time
+    s32i    a11, a10, PORTINT_SWITCH_OFF        // zero out for next time
 
     // Preemption, save remaining state of current (outgoing) thread
 

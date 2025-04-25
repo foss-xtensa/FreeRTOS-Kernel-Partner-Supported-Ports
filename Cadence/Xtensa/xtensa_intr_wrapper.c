@@ -47,7 +47,6 @@ typedef struct xt_handler_table_entry {
 extern xt_handler_table_entry _xt_interrupt_table[XCHAL_NUM_INTERRUPTS + 1];
 
 extern int32_t  xt_sw_intnum;
-extern int32_t  port_switch_flag;
 
 static int32_t  xt_wflag;
 
@@ -85,7 +84,7 @@ xt_interrupt_wrapper(void * arg)
     if (xt_wflag != 0) {
         xt_wflag = 0;
     }
-    else if (port_switch_flag) {
+    else if (_xt_intdata.port_switch_flag) {
         xt_wflag = 1;
         xt_interrupt_trigger(xt_sw_intnum);
     }

@@ -347,8 +347,8 @@ BaseType_t xPortRaisePrivilege( void );
     #define portRELEASE_TASK_LOCK()
 
     extern xt_internal_data_t _xt_intdata;
-    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( _xt_intdata.port_interruptNesting++ )
-    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( _xt_intdata.port_interruptNesting-- )
+    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( _xt_intdata.port_interruptNestings++ )
+    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( _xt_intdata.port_interruptNestings-- )
 
 #endif  // configNUMBER_OF_CORES
 /*-----------------------------------------------------------*/
