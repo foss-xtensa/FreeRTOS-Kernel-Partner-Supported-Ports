@@ -1,3 +1,10 @@
+Notes for Version 3.11
+----------------------
+
+- FreeRTOS SMP no longer requires dataram.
+  See readme_xtensa.txt for updated details and requirements.
+
+
 Notes for Version 3.10
 ----------------------
 
