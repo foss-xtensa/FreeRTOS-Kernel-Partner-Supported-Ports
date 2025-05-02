@@ -736,3 +736,56 @@ _xt_task_coproc_state:
     ret
 
 #endif /* XCHAL_CP_NUM > 0 */
+
+
+#if (defined configNUMBER_OF_CORES) && ( configNUMBER_OF_CORES > 1 )
+
+/*
+-------------------------------------------------------------------------------
+  Initial (startup) stack for SMP systems
+
+  For SMP configurations, (configNUMBER_OF_CORES * XT_SYSTEM_STACK_SIZE) bytes
+  are allocated.  Avoid placing this in per-core memory (usually dataram) as 
+  that is a valuable resource.
+-------------------------------------------------------------------------------
+*/
+
+    .data
+
+    .global xt_startup_stacks
+    .align  16
+
+xt_startup_stacks:
+    .space  XT_SYSTEM_STACK_SIZE
+xt_interrupt_stack_top:
+    .rept   configNUMBER_OF_CORES - 1
+    .space  XT_SYSTEM_STACK_SIZE
+    .endr
+
+
+    .text
+    .global __stack_init
+    .type   __stack_init,@function
+    .align  4
+
+__stack_init:
+
+    // NOTE: called via call0/callx0, return address is in a0.
+    // NOTE: must not rely on valid stack pointer / BSS values.
+
+    movi    a2, XT_SYSTEM_STACK_SIZE    // must be multiple of 16 bytes
+    coreid  a3
+
+    movi    a4, __stack                 // default SP
+2:
+    beqz    a3, 3f
+    sub     a4, a4, a2
+    addi    a3, a3, -1
+    j       2b
+3:
+    mov     a1, a4                      // set stack pointer
+    ret
+
+    .size   __stack_init, . - __stack_init
+
+#endif /* configNUMBER_OF_CORES > 1 */
