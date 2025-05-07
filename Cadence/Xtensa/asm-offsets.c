@@ -27,4 +27,6 @@ int main(void)
 #endif
     DEFINE(PORTINT_NEST_OFF, offsetof(xt_internal_data_t, port_interruptNestings));
     DEFINE(PORTINT_SWITCH_OFF, offsetof(xt_internal_data_t, port_switch_flag));
+    DEFINE(PORTINT_INTENABLE_OFF, offsetof(xt_internal_data_t, xt_intenable));
+    DEFINE(PORTINT_VPRI_MASK_OFF, offsetof(xt_internal_data_t, xt_vpri_mask));
 }

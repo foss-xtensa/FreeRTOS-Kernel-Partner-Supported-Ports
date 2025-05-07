@@ -283,14 +283,17 @@ BaseType_t xPortRaisePrivilege( void );
      * since various members are read or written by their own core.  If new fields
      * are added, XT_PERCORE_DATA_SIZE must be adjusted accordingly.
      */
-    #define XT_PERCORE_DATA_SIZE        (sizeof(UBaseType_t) + 8)
+    #define XT_PERCORE_DATA_SIZE        (sizeof(UBaseType_t) + 16)
 
     typedef struct xt_internal_data {
         uint32_t port_interruptNestings;    // First field for asm efficiency
         uint32_t port_switch_flag;
         UBaseType_t uxCriticalNestings;
+        uint32_t xt_intenable;
+        uint32_t xt_vpri_mask;
+
         // TODO: libc / reent structure
-        // TODO: lock into cache?
+        // TODO: place in dataram if available vs. lock into cache?
         uint8_t  pad[XCHAL_DCACHE_LINESIZE - XT_PERCORE_DATA_SIZE];
     } xt_internal_data_t;
 
@@ -333,6 +336,9 @@ BaseType_t xPortRaisePrivilege( void );
     typedef struct xt_internal_data {
         uint32_t port_interruptNestings;    // First field for asm efficiency
         uint32_t port_switch_flag;
+        uint32_t xt_intenable;
+        uint32_t xt_vpri_mask;
+        // TODO: place in dataram if available vs. lock into cache?
     } xt_internal_data_t;
 
     static_assert( offsetof(xt_internal_data_t, port_interruptNestings) == 0, "Bad xt_internal_data field order" );

@@ -102,12 +102,6 @@ xt_set_exception_handler( uint32_t n, xt_exc_handler f )
 
 #if XCHAL_HAVE_INTERRUPTS
 
-#if XCHAL_HAVE_XEA2 && (XCHAL_NUM_INTERRUPTS <= 32)
-/* Defined in xtensa_intr_asm.S */
-extern uint32_t xt_intenable;
-extern uint32_t xt_vpri_mask;
-#endif
-
 /* Handler table is in xtensa_intr_asm.S */
 typedef struct xt_handler_table_entry {
     xt_handler handler;
@@ -230,11 +224,16 @@ xt_interrupt_enable( uint32_t intnum )
 #if XCHAL_HAVE_XEA2 && (XCHAL_NUM_INTERRUPTS <= 32)
     if ( intnum < (uint32_t) XCHAL_NUM_INTERRUPTS )
     {
+        #if ( configNUMBER_OF_CORES > 1 )
+        xt_internal_data_t *intdatap = &(_xt_intdata[portGET_CORE_ID()]);
+        #else
+        xt_internal_data_t *intdatap = &_xt_intdata;
+        #endif
         int ps = XT_RSIL( 15 );
 
         // New INTENABLE = (xt_intenable | mask) & xt_vpri_mask.
-        xt_intenable |= ( 1U << intnum );
-        XT_WSR_INTENABLE( xt_intenable & xt_vpri_mask );
+        intdatap->xt_intenable |= ( 1U << intnum );
+        XT_WSR_INTENABLE( intdatap->xt_intenable & intdatap->xt_vpri_mask );
         XT_WSR_PS( ps );
         XT_RSYNC();
     }
@@ -254,11 +253,16 @@ xt_interrupt_disable( uint32_t intnum )
 #if XCHAL_HAVE_XEA2 && (XCHAL_NUM_INTERRUPTS <= 32)
     if ( intnum < (uint32_t) XCHAL_NUM_INTERRUPTS )
     {
+        #if ( configNUMBER_OF_CORES > 1 )
+        xt_internal_data_t *intdatap = &(_xt_intdata[portGET_CORE_ID()]);
+        #else
+        xt_internal_data_t *intdatap = &_xt_intdata;
+        #endif
         int ps = XT_RSIL( 15 );
 
         // New INTENABLE = (xt_intenable & ~mask) & xt_vpri_mask.
-        xt_intenable &= ~( 1U << intnum );
-        XT_WSR_INTENABLE( xt_intenable & xt_vpri_mask );
+        intdatap->xt_intenable &= ~( 1U << intnum );
+        XT_WSR_INTENABLE( intdatap->xt_intenable & intdatap->xt_vpri_mask );
         XT_WSR_PS( ps );
         XT_RSYNC();
     }
@@ -278,7 +282,13 @@ xt_interrupt_enabled( uint32_t intnum )
 #if XCHAL_HAVE_XEA2 && (XCHAL_NUM_INTERRUPTS <= 32)
     if ( intnum < (uint32_t) XCHAL_NUM_INTERRUPTS )
     {
-        return ( (xt_intenable & (1U << intnum)) != 0 ) ? 1U : 0;
+        #if ( configNUMBER_OF_CORES > 1 )
+        xt_internal_data_t *intdatap = &(_xt_intdata[portGET_CORE_ID()]);
+        #else
+        xt_internal_data_t *intdatap = &_xt_intdata;
+        #endif
+
+        return ( (intdatap->xt_intenable & (1U << intnum)) != 0 ) ? 1U : 0;
     }
     return 0;
 #else
