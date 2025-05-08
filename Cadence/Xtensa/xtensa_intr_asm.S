@@ -45,30 +45,10 @@
 /*
 -------------------------------------------------------------------------------
   INTENABLE virtualization information.
+
+  Moved to _xt_intdata structure for better cache performance
 -------------------------------------------------------------------------------
 */
-
-#if XCHAL_HAVE_XEA2 && (XCHAL_NUM_INTERRUPTS <= 32)
-
-#if ( configNUMBER_OF_CORES > 1 )
-    .section ".rtos.percpu.data"
-#else
-    .data
-#endif
-    .global xt_intdata
-    .align  8
-xt_intdata:
-    .global xt_intenable
-    .type   xt_intenable,@object
-    .size   xt_intenable,4
-    .global xt_vpri_mask
-    .type   xt_vpri_mask,@object
-    .size   xt_vpri_mask,4
-
-xt_intenable:     .word   0             /* Virtual INTENABLE     */
-xt_vpri_mask:     .word   0xFFFFFFFF    /* Virtual priority mask */
-
-#endif
 
 /*
 -------------------------------------------------------------------------------

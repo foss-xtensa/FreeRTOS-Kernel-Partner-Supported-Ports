@@ -101,20 +101,54 @@ uint32_t port_xSchedulerRunning = 0U;
 
 #if ( configNUMBER_OF_CORES == 1 )
 
-// Interrupt nesting level.
-uint32_t port_interruptNesting  = 0U;
+// Interrupt nesting level and task switch flag maintained together.
+xt_internal_data_t _xt_intdata = {
+    0, 0, 0, 0xffffffff
+};
 
 #else
 
-// Interrupt nesting level.
-uint32_t port_interruptNestings[ configNUMBER_OF_CORES ];
-
-UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
+// Interrupt variables and uxCriticalNestings contained within this
+// per-core data structure.  Structure size is padded to cache line.
+xt_internal_data_t __attribute__((aligned (XCHAL_DCACHE_LINESIZE)))
+_xt_intdata[ configNUMBER_OF_CORES ] = {
+    { 0, 0, 0, 0, 0xffffffff, { 0 } },
+#if ( configNUMBER_OF_CORES >= 2 )
+    { 0, 0, 0, 0, 0xffffffff, { 0 } },
+#endif
+#if ( configNUMBER_OF_CORES >= 3 )
+    { 0, 0, 0, 0, 0xffffffff, { 0 } },
+#endif
+#if ( configNUMBER_OF_CORES >= 4 )
+    { 0, 0, 0, 0, 0xffffffff, { 0 } },
+#endif
+#if ( configNUMBER_OF_CORES >= 5 )
+    { 0, 0, 0, 0, 0xffffffff, { 0 } },
+#endif
+#if ( configNUMBER_OF_CORES >= 6 )
+    { 0, 0, 0, 0, 0xffffffff, { 0 } },
+#endif
+#if ( configNUMBER_OF_CORES >= 7 )
+    { 0, 0, 0, 0, 0xffffffff, { 0 } },
+#endif
+#if ( configNUMBER_OF_CORES == 8 )
+    { 0, 0, 0, 0, 0xffffffff, { 0 } },
+#endif
+};
 
 xtos_mutex _xt_mutex_ISR;
 xtos_mutex _xt_mutex_task;
 
-#endif
+// Ensure SMP initialization flag values are non-zero so it gets linked
+// into .data and not .bss.
+typedef enum {
+    XT_SMP_SYNC_INITVAL = 1,
+    XT_SMP_SYNC_DONE = 2,
+} xt_smp_sync_t;
+
+volatile xt_smp_sync_t xt_smp_sync = XT_SMP_SYNC_INITVAL;
+
+#endif // ( configNUMBER_OF_CORES == 1 )
 
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE
 
@@ -309,8 +343,14 @@ BaseType_t xPortStartScheduler( void )
 
     #if XT_USE_THREAD_SAFE_CLIB
     // Init C library
-    vPortClibInit();
-    #endif
+    #if ( configNUMBER_OF_CORES > 1 )
+    if (portGET_CORE_ID() == 0)
+    #endif  // ( configNUMBER_OF_CORES > 1 )
+    {
+        // Init C library
+        vPortClibInit();
+    }
+    #endif  // XT_USE_THREAD_SAFE_CLIB
 
     #if portUSING_MPU_WRAPPERS
     // Setup MPU
@@ -322,6 +362,9 @@ BaseType_t xPortStartScheduler( void )
 
     #if ( configNUMBER_OF_CORES > 1 )
     if (portGET_CORE_ID() == 0) {
+        // Cache-coherence means writeback operations are unnecessary.
+        xt_smp_sync = XT_SMP_SYNC_DONE;
+
         // Release other cores last
         if (xthal_run_cores(XTSUB_RUN_ALL_CORES)) {
             return pdFALSE;
@@ -344,6 +387,41 @@ void vPortEndScheduler( void )
     xt_tick_timer_stop();
     port_xSchedulerRunning = 0U;
 }
+
+
+#if ( configNUMBER_OF_CORES > 1 )
+//-----------------------------------------------------------------------------
+// Starting with port v3.11, the SMP init process is slightly different: only
+// core 0 calls main(); other cores enter the scheduler directly via _start().
+//
+// Since SMP requires coherent shared memory, core 0 must do the following:
+// 1) initializing BSS, and 
+// 2) calling __clibrary_init()
+//
+// Nonzero cores will skip these steps and wait here until core 0 calls
+// xPortStartScheduler(), ensuring all cores are synchronized, regardless of
+// the order reset was released.
+//
+// This process is implemented by overriding the __memmap_init() hook in the
+// XTOS CRT init sequence.  Note that BSS is not initialized at this point so
+// we must only reference initialized global data.  Any systems that require
+// additional MMU/TLB setup will need to hook in here as well.
+//-----------------------------------------------------------------------------
+void __memmap_init(void)
+{
+    if (portGET_CORE_ID() > 0) {
+        portDISABLE_INTERRUPTS();
+        while (xt_smp_sync != XT_SMP_SYNC_DONE) {
+            // Busy-wait
+        }
+
+        // By this point core 0 will have initialized BSS
+        (void) xPortStartScheduler();
+        // Does not return here
+    }
+}
+#endif // ( configNUMBER_OF_CORES > 1 )
+
 
 //-----------------------------------------------------------------------------
 // Stack initialization.

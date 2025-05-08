@@ -34,6 +34,7 @@
 
 #include "xtensa_context.h"
 #include "xtensa_rtos.h"
+#include "xtensa_asm.h"
 
 
 #if XCHAL_CP_NUM > 0
@@ -45,15 +46,15 @@
 // Table of coprocessor owners, identified by thread's CP save area pointer.
 // Zero means coprocessor is not owned.
 
-#if ( configNUMBER_OF_CORES > 1 )
-        .section ".rtos.percpu.data"
-#else
         .data
-#endif
         .global _xt_coproc_owner_sa
         .align  16,,XCHAL_CP_MAX << 2   //  minimize crossing cache boundaries
 _xt_coproc_owner_sa:
+#if (defined configNUMBER_OF_CORES)
+        .rept   (XCHAL_CP_MAX * configNUMBER_OF_CORES)
+#else
         .rept   XCHAL_CP_MAX
+#endif
         .word   0
         .endr
 
@@ -111,6 +112,16 @@ _xt_coproc_handler:
         addx4   a0,  a5, a0                     // a0 = &_xt_coproc_mask[n]
         l32i    a0,  a0, 0                      // a0 = (n << 16) | (1 << n)
         movi    a3,  _xt_coproc_owner_sa
+#if ( configNUMBER_OF_CORES > 1 )
+        // Increment _xt_coproc_owner_sa (a3) to per-core area
+        coreid  a2
+1:
+        beqz    a2, 2f
+        addi    a3, a3, (XCHAL_CP_MAX * 4)
+        addi    a2, a2, -1
+        j       1b
+2:
+#endif
         extui   a2,  a0, 0, 16                  // coprocessor bitmask portion
         or      a4,  a4, a2                     // a4 = CPENABLE | (1 << n)
         wsr     a4,  CPENABLE
@@ -250,8 +261,17 @@ _xt_coproc_saveall:
 .L_save_cp:
         // Clear coprocessor owner thread (save area ptr)
         movi    a3,  _xt_coproc_owner_sa
+
+        // Increment _xt_coproc_owner_sa (a3) to per-core area
+        coreid  a5
+1:
+        beqz    a5, 2f
+        addi    a3, a3, (XCHAL_CP_MAX * 4)
+        addi    a5, a5, -1
+        j       1b
+2:      // NOTE: a5 is 0 by the time we get here
+
         addx4   a3,  a9, a3                     // a3 = &_xt_coproc_owner_sa[n]
-        movi    a5,  0
         s32i    a5,  a3, 0                      // _xt_coproc_owner_sa[n] = NULL
 
         // We need to save owner's coprocessor state

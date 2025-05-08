@@ -83,7 +83,7 @@ endif
 IFLAGS      = \
   -I$(FR_SRCDIR)$(S)include -I$(XT_SRCDIR) -I$(TSTROOT)$(S)common$(S)config_files -I$(BLDDIR)
 
-CSTD        = -std=c99
+CSTD        = -std=c11
 ifeq ($(OVERLAY),1)
 CFLAGS      = -Os -g
 else

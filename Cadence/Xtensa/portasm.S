@@ -33,25 +33,13 @@
 #include "xtensa_asm.h"
 
 
-/*
-*******************************************************************************
-* For SMP systems, these flag variables must be placed into per-core memory
-* (typically dataram).
-*******************************************************************************
-*/
-#if ( configNUMBER_OF_CORES > 1 )
-    .section ".rtos.percpu.data"
-#else
+#if XCHAL_HAVE_XEA3
     .data
-#endif
     .align      16
-    .global     port_switch_flag
-port_switch_flag:
-    .word       0
-
     .global     port_yield_flag
 port_yield_flag:
     .word       0
+#endif
 
 
 #if portUSING_MPU_WRAPPERS
@@ -78,9 +66,9 @@ _frxt_setup_switch:
 
     ENTRY(16)
 
-    movi    a2, port_switch_flag
+    pintdata a2, a3
     movi    a3, 1
-    s32i    a3, a2, 0
+    s32i    a3, a2, PORTINT_SWITCH_OFF /* port_switch_flag = 1            */
 
     RET(16)
 
@@ -121,28 +109,27 @@ _frxt_int_enter:
     Manage nesting directly rather than call the generic IntEnter()
     (in windowed ABI we can't call a C function here anyway because PS.EXCM is still set).
     */
-    pintnest a3, a2                     /* a3 <- &port_interruptNesting    */
+    pintdata a3, a2                     /* a3 <- &port_interruptNesting    */
     movi    a2,  port_xSchedulerRunning
     l32i    a2,  a2, 0                  /* a2 = port_xSchedulerRunning     */
     beqz    a2,  1f                     /* scheduler not running, no tasks */
-    l32i    a2,  a3, 0                  /* a2 = port_interruptNesting      */
+    l32i    a2,  a3, PORTINT_NEST_OFF   /* a2 = port_interruptNesting      */
     addi    a2,  a2, 1                  /* increment nesting count         */
-    s32i    a2,  a3, 0                  /* save nesting count              */
+    s32i    a2,  a3, PORTINT_NEST_OFF   /* save nesting count              */
     bnei    a2,  1, .Lnested            /* !=0 before incr, so nested      */
 
     pxctcb  a2,  a3                     /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a2,  a2, 0                  /* a2 = current TCB                */
     beqz    a2,  1f
     s32i    a1,  a2, TCB_TOP_OF_STACK_OFF   /* pxCurrentTCB->pxTopOfStack = SP */
-    movi    a1,  xt_interrupt_stack_top /* a1 = top of intr stack          */
+    movi    a1,  xt_interrupt_stack_top /* a1 = top of core 0 intr stack   */
     #if ( configNUMBER_OF_CORES > 1 )
-    coreid  a2,  a3
-    beqz    a2,  1f
-    movi    a3,  configISR_STACK_SIZE
+    beqz    a3,  1f                     /* a3 contains coreid from pxctcb  */
+    movi    a2,  configISR_STACK_SIZE
 .Lset_int_stack:
-    add     a1,  a1, a3
-    addi    a2,  a2, -1
-    bnez    a2,  .Lset_int_stack
+    add     a1,  a1, a2
+    addi    a3,  a3, -1
+    bnez    a3,  .Lset_int_stack
     #endif
 
 .Lnested:
@@ -174,26 +161,25 @@ _frxt_int_enter:
     .align  4
 _frxt_int_exit:
 
-    pintnest a3, a2                     /* a3 <- &port_interruptNesting    */
+    pintdata a3, a2                     /* a3 <- &port_interruptNesting    */
     movi    a2,  port_xSchedulerRunning
     rsil    a0,  XT_IRQ_LOCK_LEVEL      /* lock out interrupts             */
     l32i    a2,  a2, 0                  /* a2 = port_xSchedulerRunning     */
     beqz    a2,  .Lnoswitch             /* scheduler not running, no tasks */
-    l32i    a2,  a3, 0                  /* a2 = port_interruptNesting      */
+    l32i    a2,  a3, PORTINT_NEST_OFF   /* a2 = port_interruptNesting      */
     addi    a2,  a2, -1                 /* decrement nesting count         */
-    s32i    a2,  a3, 0                  /* save nesting count              */
+    s32i    a2,  a3, PORTINT_NEST_OFF   /* save nesting count              */
     bnez    a2,  .Lnesting              /* !=0 after decr so still nested  */
 
-    pxctcb  a2,  a3                     /* pxCurrentTCB or pxCurrentTCBs[] */
+    pxctcb  a2,  a4                     /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a2,  a2, 0                  /* a2 = current TCB                */
     beqz    a2,  1f                     /* no task ? go to dispatcher      */
     l32i    a1,  a2, TCB_TOP_OF_STACK_OFF         /* SP = pxCurrentTCB->pxTopOfStack */
 
-    movi    a2,  port_switch_flag       /* address of switch flag          */
-    l32i    a3,  a2, 0                  /* a3 = port_switch_flag           */
-    beqz    a3,  .Lnoswitch             /* flag = 0 means no switch reqd   */
-    movi    a3,  0
-    s32i    a3,  a2, 0                  /* zero out the flag for next time */
+    l32i    a2,  a3, PORTINT_SWITCH_OFF /* a2 = port_switch_flag           */
+    beqz    a2,  .Lnoswitch             /* flag = 0 means no switch reqd   */
+    movi    a2,  0
+    s32i    a2,  a3, PORTINT_SWITCH_OFF /* zero out the flag for next time */
 
 1:
     /*
@@ -286,15 +272,14 @@ _frxt_dispatch:
 
 #ifdef __XTENSA_CALL0_ABI__
     #if ( configNUMBER_OF_CORES > 1 )
-    coreid  a2,  a3
+    coreid  a2
     #endif
     call0   vTaskSwitchContext  // Get next TCB to resume
     pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
 #else
-    #if ( configNUMBER_OF_CORES > 1 )
-    coreid  a10, a3
-    #endif
-    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
+    // When (configNUMBER_OF_CORES > 1) we call vTaskSwitchContext(coreId)
+    // ... and pxctcb places coreid into second register parameter (for SMP)
+    pxctcb  a2,  a10                        /* pxCurrentTCB or pxCurrentTCBs[] */
     call8   vTaskSwitchContext  // Get next TCB to resume
 #endif  // __XTENSA_CALL0_ABI__
 
@@ -316,15 +301,14 @@ _frxt_dispatch:
 #if XCHAL_HAVE_XEA2
     #ifdef __XTENSA_CALL0_ABI__
     #if ( configNUMBER_OF_CORES > 1 )
-    coreid  a2,  a3
+    coreid  a2
     #endif
     call0   vTaskSwitchContext  // Get next TCB to resume
     pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
     #else
-    #if ( configNUMBER_OF_CORES > 1 )
-    coreid  a6,  a3
-    #endif
-    pxctcb  a2,  a3                         /* pxCurrentTCB or pxCurrentTCBs[] */
+    // When (configNUMBER_OF_CORES > 1) we call vTaskSwitchContext(coreId)
+    // ... and pxctcb places coreid into second register parameter (for SMP)
+    pxctcb  a2,  a6                         /* pxCurrentTCB or pxCurrentTCBs[] */
     call4   vTaskSwitchContext  // Get next TCB to resume
     #endif
     l32i    a3,  a2, 0
@@ -738,8 +722,8 @@ _xt_task_coproc_state:
     movi    a15, port_xSchedulerRunning /* if (port_xSchedulerRunning                   */
     l32i    a15, a15, 0
     beqz    a15, 2f
-    pintnest a15, a8                    /* a15 <- &port_interruptNesting                */
-    l32i    a15, a15, 0
+    pintdata a15, a8                    /* a15 <- &port_interruptNesting                */
+    l32i    a15, a15, PORTINT_NEST_OFF
     bnez    a15, 1f
     pxctcb  a15, a8                         /* pxCurrentTCB or pxCurrentTCBs[] */
     l32i    a15, a15, 0                 /* && pxCurrentTCB != 0) {                      */
@@ -752,3 +736,56 @@ _xt_task_coproc_state:
     ret
 
 #endif /* XCHAL_CP_NUM > 0 */
+
+
+#if (defined configNUMBER_OF_CORES) && ( configNUMBER_OF_CORES > 1 )
+
+/*
+-------------------------------------------------------------------------------
+  Initial (startup) stack for SMP systems
+
+  For SMP configurations, (configNUMBER_OF_CORES * XT_SYSTEM_STACK_SIZE) bytes
+  are allocated.  Avoid placing this in per-core memory (usually dataram) as 
+  that is a valuable resource.
+-------------------------------------------------------------------------------
+*/
+
+    .data
+
+    .global xt_startup_stacks
+    .align  16
+
+xt_startup_stacks:
+    .space  XT_SYSTEM_STACK_SIZE
+xt_startup_stack_top:
+    .rept   configNUMBER_OF_CORES - 1
+    .space  XT_SYSTEM_STACK_SIZE
+    .endr
+
+
+    .text
+    .global __stack_init
+    .type   __stack_init,@function
+    .align  4
+
+__stack_init:
+
+    // NOTE: called via call0/callx0, return address is in a0.
+    // NOTE: must not rely on valid stack pointer / BSS values.
+
+    movi    a2, XT_SYSTEM_STACK_SIZE    // must be multiple of 16 bytes
+    coreid  a3
+
+    movi    a4, xt_startup_stack_top    // default SP (top of core 0 stack)
+2:
+    beqz    a3, 3f
+    add     a4, a4, a2
+    addi    a3, a3, -1
+    j       2b
+3:
+    mov     a1, a4                      // set stack pointer
+    ret
+
+    .size   __stack_init, . - __stack_init
+
+#endif /* configNUMBER_OF_CORES > 1 */

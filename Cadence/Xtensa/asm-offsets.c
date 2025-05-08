@@ -25,4 +25,8 @@ int main(void)
 #if ( configUSE_C_RUNTIME_TLS_SUPPORT == 1 )
     DEFINE(TCB_IMPURE_PTR_OFF, offsetof(TCB_t, xTLSBlock));
 #endif
+    DEFINE(PORTINT_NEST_OFF, offsetof(xt_internal_data_t, port_interruptNesting));
+    DEFINE(PORTINT_SWITCH_OFF, offsetof(xt_internal_data_t, port_switch_flag));
+    DEFINE(PORTINT_INTENABLE_OFF, offsetof(xt_internal_data_t, xt_intenable));
+    DEFINE(PORTINT_VPRI_MASK_OFF, offsetof(xt_internal_data_t, xt_vpri_mask));
 }

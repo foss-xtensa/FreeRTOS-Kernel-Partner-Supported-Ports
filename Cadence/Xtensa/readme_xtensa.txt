@@ -776,16 +776,15 @@ https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/13-Symmetric
 
 Important information regarding Xtensa SMP support:
 
-- Core configuration requirements for FreeRTOS SMP:
+- Core configuration requirements for FreeRTOS SMP (updated in v3.11):
 
-  1. 1+ dataram (per-core), 400 bytes minimum (see below)
-  2. MPU hardware (for coherence)
-  3. 1 set of inter-processor interrupts (IPIs) <= EXCM_LEVEL
-  4. Only coherent LX8 multicore configurations are supported at this time;
+  1. MPU hardware (for coherence)
+  2. 1 set of inter-processor interrupts (IPIs) <= EXCM_LEVEL
+  3. Only coherent LX8 multicore configurations are supported at this time;
      as such, the exclusive access option is subsequently required
-  5. Unrelated to SMP, 1 timer per core <= EXCM_LEVEL and 
+  4. Unrelated to SMP, 1 timer per core <= EXCM_LEVEL and 
      1 software interrupt per core <= EXCM_LEVEL are required
-  6. Xtensa C library (xclib) software support is required;
+  5. Xtensa C library (xclib) software support is required;
      newlib is not currently supported for SMP builds
 
 - SMP support requires Xtensa toolchain version RJ-2025.5 or newer.
@@ -818,18 +817,6 @@ Important information regarding Xtensa SMP support:
 - SMP examples are provided in common/application_code/cadence_code/xt_smp.c
   and common/application_code/cadence_code/xt_mc_demo.c and can be built
   by running "make SMP=1" in Cadence_Xtensa_ISS_xt-clang/.
-
-- A small number of global variables within the port (e.g. for interrupt
-  handling and scheduling) must be allocated per-core, and by default are
-  placed in a section named ".rtos.percpu.data".  The CLIB reentrancy data
-  are similarly allocated per-core, and by default are placed in the section
-  ".clib.percpu.bss".  When linked with the "sim-mc" LSP, these objects get
-  placed into per-core dataram by default.  Typical dataram requirements for
-  these structures are listed above.
-
-  NOTE: If only one executable is loaded onto one core, use a romable LSP to
-  ensure .rtos.percpu.data are properly unpacked into each core's dataram,
-  e.g. by running "make SMP=1 LSP=sim-mc-rom" in Cadence_Xtensa_ISS_xt-clang/.
 
 - The Xtensa system interrupt stack (mentioned above) is replicated per-core
   in order to properly handle interrupts on a shared-memory system.  These
