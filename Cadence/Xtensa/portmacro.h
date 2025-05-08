@@ -286,18 +286,15 @@ BaseType_t xPortRaisePrivilege( void );
     #define XT_PERCORE_DATA_SIZE        (sizeof(UBaseType_t) + 16)
 
     typedef struct xt_internal_data {
-        uint32_t port_interruptNestings;    // First field for asm efficiency
+        uint32_t port_interruptNesting;    // First field for asm efficiency
         uint32_t port_switch_flag;
         UBaseType_t uxCriticalNestings;
         uint32_t xt_intenable;
         uint32_t xt_vpri_mask;
-
-        // TODO: libc / reent structure
-        // TODO: place in dataram if available vs. lock into cache?
         uint8_t  pad[XCHAL_DCACHE_LINESIZE - XT_PERCORE_DATA_SIZE];
     } xt_internal_data_t;
 
-    static_assert( offsetof(xt_internal_data_t, port_interruptNestings) == 0, "Bad xt_internal_data field order" );
+    static_assert( offsetof(xt_internal_data_t, port_interruptNesting) == 0, "Bad xt_internal_data field order" );
     static_assert( sizeof(xt_internal_data_t) == XCHAL_DCACHE_LINESIZE, "Incorrect xt_internal_data padding" );
 
     #define portGET_CORE_ID()           xthal_get_coreid()
@@ -318,9 +315,9 @@ BaseType_t xPortRaisePrivilege( void );
     #define portINCREMENT_CRITICAL_NESTING_COUNT()    ( (_xt_intdata[ portGET_CORE_ID() ].uxCriticalNestings) ++ )
     #define portDECREMENT_CRITICAL_NESTING_COUNT()    ( (_xt_intdata[ portGET_CORE_ID() ].uxCriticalNestings) -- )
 
-    // port_interruptNestings maintained within per-core data
-    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( (_xt_intdata[ portGET_CORE_ID() ].port_interruptNestings) ++ )
-    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( (_xt_intdata[ portGET_CORE_ID() ].port_interruptNestings) -- )
+    // port_interruptNesting maintained within per-core data
+    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( (_xt_intdata[ portGET_CORE_ID() ].port_interruptNesting) ++ )
+    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( (_xt_intdata[ portGET_CORE_ID() ].port_interruptNesting) -- )
 
     extern UBaseType_t vTaskEnterCriticalFromISR(void);
     extern void vTaskExitCriticalFromISR(UBaseType_t uxSavedInterruptStatus);
@@ -334,14 +331,13 @@ BaseType_t xPortRaisePrivilege( void );
      * structure pointer.
      */
     typedef struct xt_internal_data {
-        uint32_t port_interruptNestings;    // First field for asm efficiency
+        uint32_t port_interruptNesting;    // First field for asm efficiency
         uint32_t port_switch_flag;
         uint32_t xt_intenable;
         uint32_t xt_vpri_mask;
-        // TODO: place in dataram if available vs. lock into cache?
     } xt_internal_data_t;
 
-    static_assert( offsetof(xt_internal_data_t, port_interruptNestings) == 0, "Bad xt_internal_data field order" );
+    static_assert( offsetof(xt_internal_data_t, port_interruptNesting) == 0, "Bad xt_internal_data field order" );
 
     #define portGET_CORE_ID()           0
     #define portYIELD_CORE(xCoreID)     UNUSED(xCoreID)
@@ -353,8 +349,8 @@ BaseType_t xPortRaisePrivilege( void );
     #define portRELEASE_TASK_LOCK()
 
     extern xt_internal_data_t _xt_intdata;
-    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( _xt_intdata.port_interruptNestings++ )
-    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( _xt_intdata.port_interruptNestings-- )
+    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( _xt_intdata.port_interruptNesting++ )
+    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( _xt_intdata.port_interruptNesting-- )
 
 #endif  // configNUMBER_OF_CORES
 /*-----------------------------------------------------------*/

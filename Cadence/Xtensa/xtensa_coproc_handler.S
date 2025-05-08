@@ -45,7 +45,6 @@
 
 // Table of coprocessor owners, identified by thread's CP save area pointer.
 // Zero means coprocessor is not owned.
-// TODO: can we combine this with _xt_intdata?
 
         .data
         .global _xt_coproc_owner_sa
