@@ -122,7 +122,7 @@ _frxt_int_enter:
     l32i    a2,  a2, 0                  /* a2 = current TCB                */
     beqz    a2,  1f
     s32i    a1,  a2, TCB_TOP_OF_STACK_OFF   /* pxCurrentTCB->pxTopOfStack = SP */
-    movi    a1,  xt_interrupt_stack_top /* a1 = top of intr stack          */
+    movi    a1,  xt_interrupt_stack_top /* a1 = top of core 0 intr stack   */
     #if ( configNUMBER_OF_CORES > 1 )
     beqz    a3,  1f                     /* a3 contains coreid from pxctcb  */
     movi    a2,  configISR_STACK_SIZE
@@ -757,7 +757,7 @@ _xt_task_coproc_state:
 
 xt_startup_stacks:
     .space  XT_SYSTEM_STACK_SIZE
-xt_interrupt_stack_top:
+xt_startup_stack_top:
     .rept   configNUMBER_OF_CORES - 1
     .space  XT_SYSTEM_STACK_SIZE
     .endr
@@ -776,10 +776,10 @@ __stack_init:
     movi    a2, XT_SYSTEM_STACK_SIZE    // must be multiple of 16 bytes
     coreid  a3
 
-    movi    a4, __stack                 // default SP
+    movi    a4, xt_startup_stack_top    // default SP (top of core 0 stack)
 2:
     beqz    a3, 3f
-    sub     a4, a4, a2
+    add     a4, a4, a2
     addi    a3, a3, -1
     j       2b
 3:
