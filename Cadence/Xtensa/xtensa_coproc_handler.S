@@ -249,7 +249,9 @@ _xt_coproc_saveall:
         movi    a9,  0                          // a9 = CP index
         movi    a8,  1                          // a8 = CP mask
 .L_check_done:
+        movi    a3,  XCHAL_CP_MASK              // a3  = Valid CP mask
         rsr     a10, CPENABLE                   // a10 = CPENABLE
+        and     a10, a10, a3                    // Ignore invalid CPENABLE bits
         beqz    a10, .L_xt_coproc_saveall_done
         bany    a10, a8, .L_save_cp
 .L_check_next:
