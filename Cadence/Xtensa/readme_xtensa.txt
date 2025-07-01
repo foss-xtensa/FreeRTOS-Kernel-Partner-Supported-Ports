@@ -784,9 +784,8 @@ Important information regarding Xtensa SMP support:
      as such, the exclusive access option is subsequently required
   4. Unrelated to SMP, 1 timer per core <= EXCM_LEVEL and 
      1 software interrupt per core <= EXCM_LEVEL are required
-  5. Xtensa C library (xclib) software support is required
 
-- SMP support requires Xtensa toolchain version RJ-2025.5 or newer.
+- SMP support requires Xtensa toolchain version RJ-2025.5-p1 or newer.
 
 - SMP mode is disabled by default for all configs.  SMP mode is enabled
   by defining configNUMBER_OF_CORES > 1.  For the Xtensa Demo suite, this

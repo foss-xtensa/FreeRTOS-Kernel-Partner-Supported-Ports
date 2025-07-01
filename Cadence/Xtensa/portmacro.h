@@ -251,10 +251,6 @@ BaseType_t xPortRaisePrivilege( void );
     #error "SMP support requires at least one set of inter-processor interrupts (IPIs)"
 #endif
 
-#if XSHAL_CLIB != XTHAL_CLIB_XCLIB
-    #warning "SMP support highly recommends xclib for libc reentrancy
-#endif
-
 #if (XCHAL_INT_LEVEL(XCHAL_SUBSYS_IPI_S0C0_INTNUM) > XCHAL_EXCM_LEVEL)
 #error IPI S0C0 core interrupt is > XCHAL_EXCM_LEVEL
 #endif
@@ -292,10 +288,11 @@ BaseType_t xPortRaisePrivilege( void );
      * are added, XT_PERCORE_DATA_SIZE must be adjusted accordingly.
      */
 #if (defined __DYNAMIC_REENT__)
-    #define XT_PERCORE_DATA_SIZE        (sizeof(UBaseType_t) + 20 + sizeof(struct _reent))
+    #define XT_PERCORE_REENT_DATA_SIZE  (4 + sizeof(struct _reent))
 #else
-    #define XT_PERCORE_DATA_SIZE        (sizeof(UBaseType_t) + 16)
+    #define XT_PERCORE_REENT_DATA_SIZE  0
 #endif
+    #define XT_PERCORE_DATA_SIZE        (sizeof(UBaseType_t) + 16 + XT_PERCORE_REENT_DATA_SIZE)
 
     typedef struct xt_internal_data {
         uint32_t port_interruptNesting;     // First field for asm efficiency

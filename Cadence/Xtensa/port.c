@@ -101,7 +101,13 @@ uint32_t port_xSchedulerRunning = 0U;
 
 #if (defined __DYNAMIC_REENT__)
   #if ( configNUMBER_OF_CORES > 1 )
-    #define _XT_INTDATA_REENT_INIT      NULL, { 0 },
+    #if XSHAL_CLIB == XTHAL_CLIB_XCLIB
+    #define _XT_INTDATA_REENT_INIT(x)   NULL, { 0 },
+    #elif XSHAL_CLIB == XTHAL_CLIB_NEWLIB
+    #define _XT_INTDATA_REENT_INIT(x)   NULL, _REENT_INIT(_xt_intdata[(x)].xt_reent),
+    #else
+    #error Specified CLIB not reentrant
+    #endif
   #else
     #define _XT_INTDATA_REENT_INIT      NULL,
   #endif    // configNUMBER_OF_CORES > 1
@@ -122,27 +128,27 @@ xt_internal_data_t _xt_intdata = {
 // per-core data structure.  Structure size is padded to cache line.
 xt_internal_data_t __attribute__((aligned (XCHAL_DCACHE_LINESIZE)))
 _xt_intdata[ configNUMBER_OF_CORES ] = {
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(0) { 0 } },
 #if ( configNUMBER_OF_CORES >= 2 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(1) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES >= 3 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(2) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES >= 4 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(3) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES >= 5 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(4) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES >= 6 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(5) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES >= 7 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(6) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES == 8 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(7) { 0 } },
 #endif
 };
 

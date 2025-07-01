@@ -128,16 +128,6 @@
       #define XT_CLIB_GLOBAL_PTR            _reent_ptr
       #define _REENT_INIT_PTR               _init_reent
       #define _impure_ptr                   _reent_ptr
-      #if (defined __DYNAMIC_REENT__)
-        // For xclib with support for custom reent_ptr_() we keep
-        // _impure_ptr within interrupt data struct
-        #if (configNUMBER_OF_CORES > 1)
-        #define configSET_TLS_BLOCK(xTLSBlock)  ( _xt_intdata[portGET_CORE_ID()].xt_reent_p = \
-                                                    &( xTLSBlock ) )
-        #else
-        #define configSET_TLS_BLOCK(xTLSBlock)  ( _xt_intdata.xt_reent_p = &( xTLSBlock ) )
-        #endif
-      #endif // __DYNAMIC_REENT__
 
       void _reclaim_reent(struct _reent * ptr);
     #endif  // !__ASSEMBLER__
@@ -154,6 +144,16 @@
     #define XT_HAVE_THREAD_SAFE_CLIB        0
     #error The selected C runtime library is not thread safe.
   #endif    // XTHAL_CLIB_XCLIB || XTHAL_CLIB_NEWLIB
+  #if (defined __DYNAMIC_REENT__)
+    // For xclib/newlib with support for custom reent_ptr_() we keep
+    // XT_CLIB_GLOBAL_PTR within interrupt data struct
+    #if (configNUMBER_OF_CORES > 1)
+    #define configSET_TLS_BLOCK(xTLSBlock)  ( _xt_intdata[portGET_CORE_ID()].xt_reent_p = \
+                                                &( xTLSBlock ) )
+    #else
+    #define configSET_TLS_BLOCK(xTLSBlock)  ( _xt_intdata.xt_reent_p = &( xTLSBlock ) )
+    #endif
+  #endif // __DYNAMIC_REENT__
 #else
   #define XT_CLIB_CONTEXT_AREA_SIZE         0
 #endif      // XT_USE_THREAD_SAFE_CLIB
