@@ -1,6 +1,7 @@
 Notes for Version 3.13
 ----------------------
 - FreeRTOS SMP support for newlib (experimental).
+- FreeRTOS SMP context switching performance improvements.
 
 
 Notes for Version 3.12

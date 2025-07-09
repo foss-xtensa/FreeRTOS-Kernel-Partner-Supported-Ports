@@ -112,7 +112,11 @@ uint32_t port_xSchedulerRunning = 0U;
     #define _XT_INTDATA_REENT_INIT      NULL,
   #endif    // configNUMBER_OF_CORES > 1
 #else
+  #if ( configNUMBER_OF_CORES > 1 )
+    #define _XT_INTDATA_REENT_INIT(x)
+  #else
     #define _XT_INTDATA_REENT_INIT
+  #endif
 #endif      // __DYNAMIC_REENT__
 
 #if ( configNUMBER_OF_CORES == 1 )
@@ -152,8 +156,8 @@ _xt_intdata[ configNUMBER_OF_CORES ] = {
 #endif
 };
 
-xt_mutex _xt_mutex_ISR;
-xt_mutex _xt_mutex_task;
+xt_mutex __attribute__((aligned (XCHAL_DCACHE_LINESIZE))) _xt_mutex_ISR;
+xt_mutex __attribute__((aligned (XCHAL_DCACHE_LINESIZE))) _xt_mutex_task;
 
 /*
  * Initialize the mutex.

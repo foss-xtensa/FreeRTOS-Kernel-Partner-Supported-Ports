@@ -320,10 +320,12 @@ BaseType_t xPortRaisePrivilege( void );
     /* Mutex APIs for SMP locks -- based on XTOS implementation.
      * Requires Xtensa Exclusive Store and PRID options to be present.
      * Must reside in shared memory and declared statically (not on the stack).
+     * Align and pad to cache line size for best performance.
      */
     typedef struct xt_mutex {
         uint32_t owner;
         uint32_t count;
+        uint8_t  pad[XCHAL_DCACHE_LINESIZE - 2 * sizeof(uint32_t)];
     } xt_mutex;
 
     typedef xt_mutex *  xt_mutex_p;
