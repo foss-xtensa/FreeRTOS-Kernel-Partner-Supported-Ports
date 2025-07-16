@@ -191,6 +191,44 @@
 /* Default system (interrupt) stack size */
 #define XT_SYSTEM_STACK_SIZE      0x400
 
+/**
+ * XT_USE_L2RAM is defined in xtensa_config.h and can be enabled to improve
+ * performance for SMP configurations.  When set, all "PRIVILEGED_DATA" 
+ * structures are moved to L2RAM instead of L2-cached sysram.  Both locations
+ * are cached per coherence protocol in each core's L1 data cache.
+ *
+ * It's worth noting that the default FreeRTOS heap is privileged and is moved
+ * along with these structures, so sufficient L2RAM space must be provisioned.
+ */
+#if (configNUMBER_OF_CORES > 1)
+    /* Not usable if L2 is configured as all-cache */
+    #if XCHAL_L2CACHE_ONLY
+    #undef  XT_USE_L2RAM
+    #define XT_USE_L2RAM          0
+    #endif
+    /* Default is to not use L2RAM for shared data structures;
+     * enabling this can improve context switching performance.
+     */
+    #if !(defined XT_USE_L2RAM)
+    #define XT_USE_L2RAM          0
+    #endif
+#else
+    #undef  XT_USE_L2RAM
+    #define XT_USE_L2RAM          0
+#endif
+
+#if XT_USE_L2RAM
+    /**
+     * The 50/50 L2CACHE/L2RAM split defined here may not work for all systems.
+     * These defines must be absolute numerical values, not expressions.
+     */
+    #define XT_L2RAM_SIXTEENTHS                         8
+    #define XT_L2CACHE_SIXTEENTHS                       8
+
+    #define portMOVE_PRIVILEGED_DATA    __attribute__( ( section( ".l2ram.bss" ) ) )
+#endif
+
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
     }

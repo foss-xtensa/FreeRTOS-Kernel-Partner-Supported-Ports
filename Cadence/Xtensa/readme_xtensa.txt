@@ -826,5 +826,11 @@ Important information regarding Xtensa SMP support:
   being registered for that interrupt on all cores.  However, interrupts are
   still enabled and disabled on a per-core basis.
 
+- Xtensa-specific config option "XT_USE_L2RAM" moves data structures for timer,
+  scheduler, etc. to L2RAM instead of the default L2-cached system memory.
+  This can improve context switching performance.  L1 data cache ensures
+  coherence in both cases.  See xtensa_config.h for more details.  This option
+  is disabled by default.
+
 
 -End-

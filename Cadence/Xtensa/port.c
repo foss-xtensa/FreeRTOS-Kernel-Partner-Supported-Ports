@@ -42,19 +42,19 @@
 #include <xtensa/tie/xt_exception_dispatch.h>
 #endif
 
+#include "FreeRTOS.h"
+#include "xtensa_config.h"
+
 #include "xtensa_api.h"
 #include "xtensa_rtos.h"
 
-#include "FreeRTOS.h"
 #include "task.h"
 
 /* Heap area (see heap_4.c). When MPU in use, align it to the MPU
    region boundary to avoid overlapping with non-heap data. */
-#if portUSING_MPU_WRAPPERS
+#if portUSING_MPU_WRAPPERS && configAPPLICATION_ALLOCATED_HEAP
 #define HEAP_SIZE    ((configTOTAL_HEAP_SIZE + XCHAL_MPU_ALIGN - 1) & -XCHAL_MPU_ALIGN)
 PRIVILEGED_DATA uint8_t ucHeap[ HEAP_SIZE ] __attribute__((aligned(XCHAL_MPU_ALIGN)));
-#else
-uint8_t ucHeap[ configTOTAL_HEAP_SIZE ];
 #endif
 
 #if portUSING_MPU_WRAPPERS
@@ -156,8 +156,12 @@ _xt_intdata[ configNUMBER_OF_CORES ] = {
 #endif
 };
 
-xt_mutex __attribute__((aligned (XCHAL_DCACHE_LINESIZE))) _xt_mutex_ISR;
-xt_mutex __attribute__((aligned (XCHAL_DCACHE_LINESIZE))) _xt_mutex_task;
+PRIVILEGED_DATA xt_mutex __attribute__((aligned (XCHAL_DCACHE_LINESIZE))) _xt_mutex_ISR;
+PRIVILEGED_DATA xt_mutex __attribute__((aligned (XCHAL_DCACHE_LINESIZE))) _xt_mutex_task;
+
+#if (XT_USE_L2RAM)
+XTHAL_L2_SETUP(XCHAL_L2RAM_RESET_PADDR, XT_L2RAM_SIXTEENTHS, XT_L2CACHE_SIXTEENTHS);
+#endif
 
 /*
  * Initialize the mutex.
