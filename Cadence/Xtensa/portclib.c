@@ -38,6 +38,8 @@
 
 #include "semphr.h"
 
+#define MTX_LOCK_ATTEMPTS_BEFORE_YIELD  5
+
 typedef SemaphoreHandle_t       _Rmtx;
 
 //-----------------------------------------------------------------------------
@@ -87,8 +89,16 @@ _Mtxdst(_Rmtx * mtx)
 void
 _Mtxlock(_Rmtx * mtx)
 {
+    int retries = 0;
     if ((mtx != NULL) && (*mtx != NULL)) {
-        xSemaphoreTakeRecursive(*mtx, portMAX_DELAY);
+        // Making this a non-blocking call enables the heap_3 memory manager,
+        // which calls malloc() with the scheduler suspended (and would trigger
+        // an assertion at queue.c:1675).
+        while (xSemaphoreTakeRecursive(*mtx, 0) != pdPASS) {
+            if (++retries >= MTX_LOCK_ATTEMPTS_BEFORE_YIELD) {
+                taskYIELD();
+            }
+        }
     }
 }
 
