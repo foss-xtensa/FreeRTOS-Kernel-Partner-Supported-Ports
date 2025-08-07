@@ -31,14 +31,14 @@
 
 #if XT_USE_THREAD_SAFE_CLIB
 
+#define MTX_LOCK_ATTEMPTS_BEFORE_YIELD  5
+
 #if XSHAL_CLIB == XTHAL_CLIB_XCLIB
 
 #include <errno.h>
 #include <sys/reent.h>
 
 #include "semphr.h"
-
-#define MTX_LOCK_ATTEMPTS_BEFORE_YIELD  5
 
 typedef SemaphoreHandle_t       _Rmtx;
 
@@ -90,11 +90,17 @@ void
 _Mtxlock(_Rmtx * mtx)
 {
     int retries = 0;
+    TickType_t ticks_to_wait = portMAX_DELAY;
     if ((mtx != NULL) && (*mtx != NULL)) {
-        // Making this a non-blocking call enables the heap_3 memory manager,
-        // which calls malloc() with the scheduler suspended (and would trigger
-        // an assertion at queue.c:1675).
-        while (xSemaphoreTakeRecursive(*mtx, 0) != pdPASS) {
+#if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
+        if (xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED) {
+            // Making this a non-blocking call enables the heap_3 memory manager,
+            // which calls malloc() with the scheduler suspended (and would trigger
+            // an assertion at queue.c:1675).
+            ticks_to_wait = 0;
+        }
+#endif
+        while (xSemaphoreTakeRecursive(*mtx, ticks_to_wait) != pdPASS) {
             if (++retries >= MTX_LOCK_ATTEMPTS_BEFORE_YIELD) {
                 taskYIELD();
             }
@@ -177,13 +183,28 @@ static uint32_t  ulClibInitDone = 0;
 void
 __malloc_lock(struct _reent * ptr)
 {
+    int retries = 0;
+    TickType_t ticks_to_wait = portMAX_DELAY;
+
     // Suppress compiler warning.
     (void) ptr;
 
     if (!ulClibInitDone)
         return;
 
-    xSemaphoreTakeRecursive(xClibMutex, portMAX_DELAY);
+#if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
+    if (xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED) {
+        // Making this a non-blocking call enables the heap_3 memory manager,
+        // which calls malloc() with the scheduler suspended (and would trigger
+        // an assertion at queue.c:1675).
+        ticks_to_wait = 0;
+    }
+#endif
+    while (xSemaphoreTakeRecursive(xClibMutex, ticks_to_wait) != pdPASS) {
+        if (++retries >= MTX_LOCK_ATTEMPTS_BEFORE_YIELD) {
+            taskYIELD();
+        }
+    }
 }
 
 //-----------------------------------------------------------------------------
