@@ -323,6 +323,11 @@ static void xt_tick_timer_stop( void )
 
 #if ( configNUMBER_OF_CORES > 1 )
 //-----------------------------------------------------------------------------
+// IPI interrupts used for multicore scheduler
+//-----------------------------------------------------------------------------
+const uint32_t xt_ipi_intnum[configNUMBER_OF_CORES] = XCHAL_SUBSYS_IPI_S0_INTLIST;
+
+//-----------------------------------------------------------------------------
 // portYIELD_CORE IPI handler wrapper
 //-----------------------------------------------------------------------------
 static void xt_ipi_yield_wrapper( void * arg )
@@ -410,11 +415,10 @@ BaseType_t xPortStartScheduler( void )
     // used for portYIELD_CORE().
     for (c = 0; c < configNUMBER_OF_CORES; c++) {
         if (c != portGET_CORE_ID()) {
-            uint32_t ipi_intnum[configNUMBER_OF_CORES] = XCHAL_SUBSYS_IPI_S0_INTLIST;
-            if (!xt_set_interrupt_handler(ipi_intnum[c], xt_ipi_yield_wrapper, NULL)) {
+            if (!xt_set_interrupt_handler(xt_ipi_intnum[c], xt_ipi_yield_wrapper, NULL)) {
                 return pdFALSE;
             }
-            xt_interrupt_enable(ipi_intnum[c]);
+            xt_interrupt_enable(xt_ipi_intnum[c]);
         }
     }
 
