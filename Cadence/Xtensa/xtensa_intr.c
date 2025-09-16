@@ -60,6 +60,13 @@ xt_unhandled_exception( XtExcFrame * frame )
 {
     (void) frame;
 #if ( configNUMBER_OF_CORES > 1 )
+    static int uexc_recursion_depth = 0;
+    if (++uexc_recursion_depth >= configNUMBER_OF_CORES) {
+        /* In the event that calling _exit() results in an unhandled 
+         * exception, stop the subsequent infinite loop.
+         */
+        while ( 1 );
+    }
     if (portGET_CORE_ID() > 0) {
         _exit( -1 );
     }
