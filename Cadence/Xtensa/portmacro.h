@@ -296,7 +296,7 @@ BaseType_t xPortRaisePrivilege( void );
 #else
     #define XT_PERCORE_REENT_DATA_SIZE  0
 #endif
-    #define XT_PERCORE_DATA_SIZE        (sizeof(UBaseType_t) + 16 + XT_PERCORE_REENT_DATA_SIZE)
+    #define XT_PERCORE_DATA_SIZE        (sizeof(UBaseType_t) + 20 + XT_PERCORE_REENT_DATA_SIZE)
 
     typedef struct xt_internal_data {
         uint32_t port_interruptNesting;     // First field for asm efficiency
@@ -304,6 +304,7 @@ BaseType_t xPortRaisePrivilege( void );
         UBaseType_t uxCriticalNestings;
         uint32_t xt_intenable;
         uint32_t xt_vpri_mask;
+        uint32_t xt_core_init_done;
 #if (defined __DYNAMIC_REENT__)
         struct _reent *xt_reent_p;          // When xclib defines _reent_ptr()
         struct _reent xt_reent;

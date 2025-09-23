@@ -132,27 +132,27 @@ xt_internal_data_t _xt_intdata = {
 // per-core data structure.  Structure size is padded to cache line.
 xt_internal_data_t __attribute__((aligned (XCHAL_DCACHE_LINESIZE)))
 _xt_intdata[ configNUMBER_OF_CORES ] = {
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(0) { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, 0, _XT_INTDATA_REENT_INIT(0) { 0 } },
 #if ( configNUMBER_OF_CORES >= 2 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(1) { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, 0, _XT_INTDATA_REENT_INIT(1) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES >= 3 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(2) { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, 0, _XT_INTDATA_REENT_INIT(2) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES >= 4 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(3) { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, 0, _XT_INTDATA_REENT_INIT(3) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES >= 5 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(4) { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, 0, _XT_INTDATA_REENT_INIT(4) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES >= 6 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(5) { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, 0, _XT_INTDATA_REENT_INIT(5) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES >= 7 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(6) { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, 0, _XT_INTDATA_REENT_INIT(6) { 0 } },
 #endif
 #if ( configNUMBER_OF_CORES == 8 )
-    { 0, 0, 0, 0, 0xffffffff, _XT_INTDATA_REENT_INIT(7) { 0 } },
+    { 0, 0, 0, 0, 0xffffffff, 0, _XT_INTDATA_REENT_INIT(7) { 0 } },
 #endif
 };
 
@@ -352,6 +352,7 @@ BaseType_t xPortStartScheduler( void )
     #endif
     #if (configNUMBER_OF_CORES > 1 )
     uint32_t c;
+    uint32_t my_core = portGET_CORE_ID();
     #endif
 
     // Interrupts are disabled at this point and stack contains PS with
@@ -397,7 +398,7 @@ BaseType_t xPortStartScheduler( void )
 
     #if ( configNUMBER_OF_CORES > 1 )
     // Initialize SMP mutexes
-    if (portGET_CORE_ID() == 0) {
+    if (my_core == 0) {
         xt_mutex_init(&_xt_mutex_ISR);
         xt_mutex_init(&_xt_mutex_task);
     } else {
@@ -414,7 +415,7 @@ BaseType_t xPortStartScheduler( void )
     // Configure inter-processor interrupts that can be triggered by other cores;
     // used for portYIELD_CORE().
     for (c = 0; c < configNUMBER_OF_CORES; c++) {
-        if (c != portGET_CORE_ID()) {
+        if (c != my_core) {
             if (!xt_set_interrupt_handler(xt_ipi_intnum[c], xt_ipi_yield_wrapper, NULL)) {
                 return pdFALSE;
             }
@@ -422,7 +423,7 @@ BaseType_t xPortStartScheduler( void )
         }
     }
 
-    if (portGET_CORE_ID() == configTICK_CORE) {
+    if (my_core == configTICK_CORE) {
         // Set up and enable timer tick.
         xt_tick_timer_init();
     }
@@ -434,7 +435,7 @@ BaseType_t xPortStartScheduler( void )
     #if XT_USE_THREAD_SAFE_CLIB
     // Init C library
     #if ( configNUMBER_OF_CORES > 1 )
-    if (portGET_CORE_ID() == 0)
+    if (my_core == 0)
     #endif  // ( configNUMBER_OF_CORES > 1 )
     {
         // Init C library
@@ -451,7 +452,7 @@ BaseType_t xPortStartScheduler( void )
     port_xSchedulerRunning = 1U;
 
     #if ( configNUMBER_OF_CORES > 1 )
-    if (portGET_CORE_ID() == 0) {
+    if (my_core == 0) {
         // Cache-coherence means writeback operations are unnecessary.
         xt_smp_sync = XT_SMP_SYNC_DONE;
 
@@ -459,6 +460,9 @@ BaseType_t xPortStartScheduler( void )
         if (xthal_run_cores(XTSUB_RUN_ALL_CORES)) {
             return pdFALSE;
         }
+    } else {
+        // Used by xt-gdb thread-aware debug support
+        _xt_intdata[my_core].xt_core_init_done = 1;
     }
     #endif
 
