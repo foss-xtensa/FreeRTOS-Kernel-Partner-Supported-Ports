@@ -214,7 +214,8 @@ BaseType_t xPortRaisePrivilege( void );
 #define portBYTE_ALIGNMENT              16
 #endif
 #define portNOP()                       XT_NOP()
-#define portMEMORY_BARRIER()            XT_MEMW()
+/* XT_MEMW() not required for generic C code memory barriers */
+#define portMEMORY_BARRIER()            __asm__ volatile ("" ::: "memory")
 /*-----------------------------------------------------------*/
 
 /* Multicore specifics. */
