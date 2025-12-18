@@ -194,7 +194,31 @@ xt_mutex_lock(xt_mutex_p pmtx)
             int32_t ret;
 
             do {
+#if XCHAL_HAVE_EXCLUSIVE
+                /* Streamline implementation for SMP case.
+                 * %0 : ret
+                 * %1 : address &(pmtx->owner)
+                 *    : test value (0) optimized w/ bnez
+                 * %2 : set value (id) preserved for loop
+                 * %3 : temp reg 1
+                 * %4 : temp reg 2
+                 */
+                uint32_t t1 = 0, t2 = 1;    /* Different values trick optimizer */
+                __asm__ volatile ("mov     %3, %2   /* %3 = copy of set_value */        \n\t"
+                                  "1:                                                   \n\t"
+                                  "l32ex   %0, %1   /* %0 = *address, set monitor */    \n\t"
+                                  "bnez    %0, 2f   /* skip write if *address != 0 */   \n\t"
+                                  "mov     %4, %3   /* %4 = set_value */                \n\t"
+                                  "s32ex   %4, %1   /* *address = set_value */          \n\t"
+                                  "getex   %4       /* get result of store */           \n\t"
+                                  "beqz    %4, 1b                                       \n\t"
+                                  "2:                                                   \n\t"
+                                  "clrex            /* in case we skipped write */      \n\t"
+                                  : "=&r"(ret)
+                                  : "r"(&(pmtx->owner)), "r"(id), "r"(t1), "r"(t2));
+#else
                 ret = xthal_compare_and_set((int32_t *) &(pmtx->owner), 0, (int32_t) id);
+#endif
             } while (ret != 0);
             pmtx->count = 1U;
         }
