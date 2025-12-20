@@ -194,7 +194,8 @@ xt_mutex_lock(xt_mutex_p pmtx)
             int32_t ret;
 
             do {
-#if XCHAL_HAVE_EXCLUSIVE
+#if 0
+//#if XCHAL_HAVE_EXCLUSIVE
                 /* Streamline implementation for SMP case.
                  * %0 : ret
                  * %1 : address &(pmtx->owner)
