@@ -30,9 +30,9 @@ ifeq ($(OVERLAY),1)
 OVLYFLAGS   = -DXT_USE_THREAD_SAFE_CLIB=1 -DXT_USE_OVLY=1
 endif
 
-# Build with SMP support
-ifeq ($(SMP),1)
-SMPFLAGS    = -DSMP_TEST
+# Build without SMP support
+ifeq ($(SMP),0)
+SMPFLAGS    = -DconfigNUMBER_OF_CORES=1
 endif
 
 SRCROOT     = $(subst /,$(S),$(CURDIR))

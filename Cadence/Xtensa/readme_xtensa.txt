@@ -832,5 +832,11 @@ Important information regarding Xtensa SMP support:
   coherence in both cases.  See xtensa_config.h for more details.  This option
   is disabled by default.
 
+- Xtensa-specific config option "XT_USE_DATARAM" moves data structures for
+  interrupt dispatch and reentrancy to dataram instead of the default L2-cached
+  system memory.  This removes the need to index these structures per-core and
+  can improve performance.  See xtensa_config.h for more details.  This option
+  is disabled by default.
+
 
 -End-

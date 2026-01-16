@@ -148,7 +148,7 @@
     // For xclib/newlib with support for custom reent_ptr_() we keep
     // XT_CLIB_GLOBAL_PTR within interrupt data struct
     #if (configNUMBER_OF_CORES > 1)
-    #define configSET_TLS_BLOCK(xTLSBlock)  ( _xt_intdata[portGET_CORE_ID()].xt_reent_p = \
+    #define configSET_TLS_BLOCK(xTLSBlock)  ( _XT_INTDATA(portGET_CORE_ID()).xt_reent_p = \
                                                 &( xTLSBlock ) )
     #else
     #define configSET_TLS_BLOCK(xTLSBlock)  ( _xt_intdata.xt_reent_p = &( xTLSBlock ) )
@@ -228,6 +228,26 @@
     #define portMOVE_PRIVILEGED_DATA    __attribute__( ( section( ".l2ram.bss" ) ) )
 #endif
 
+/**
+ * XT_USE_DATARAM is defined in xtensa_config.h and can be enabled to improve
+ * performance for SMP configurations.  When set, the _xt_intdata per-core
+ * structures are moved to dataram on each core.  This reduces overhead of
+ * indexing the shared structure and provides fast access to RTOS data.
+ *
+ * TODO: may also improve performance for single-core configs.
+ */
+#if ((configNUMBER_OF_CORES > 1) && (XCHAL_NUM_DATARAM > 0))
+    #if !(defined XT_USE_DATARAM)
+    #define XT_USE_DATARAM        0
+    #endif
+#else
+    #undef  XT_USE_DATARAM
+    #define XT_USE_DATARAM        0
+#endif
+
+#if XT_USE_DATARAM
+    #define XT_DATARAM_ATTR       __attribute__ ((section(".dram0.data")))
+#endif
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus

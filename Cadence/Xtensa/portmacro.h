@@ -293,7 +293,7 @@ BaseType_t xPortRaisePrivilege( void );
      * are added, XT_PERCORE_DATA_SIZE must be adjusted accordingly.
      */
 #if (defined __DYNAMIC_REENT__)
-    #define XT_PERCORE_REENT_DATA_SIZE  (4 + sizeof(struct _reent))
+    #define XT_PERCORE_REENT_DATA_SIZE  (8 + sizeof(struct _reent))
 #else
     #define XT_PERCORE_REENT_DATA_SIZE  0
 #endif
@@ -308,16 +308,21 @@ BaseType_t xPortRaisePrivilege( void );
         uint32_t xt_core_init_done;
 #if (defined __DYNAMIC_REENT__)
         struct _reent *xt_reent_p;          // When xclib defines _reent_ptr()
+        void * xt_reent_pad_align;          // Ensure xt_reent is 16-byte aligned
         struct _reent xt_reent;
 #endif
+#if ( XT_USE_DATARAM == 0 )
         uint8_t  pad[XCHAL_DCACHE_LINESIZE -
                      (XT_PERCORE_DATA_SIZE & (XCHAL_DCACHE_LINESIZE - 1))];
+#endif
     } xt_internal_data_t;
 
     static_assert( offsetof(xt_internal_data_t, port_interruptNesting) == 0,
             "Bad xt_internal_data field order" );
+#if ( XT_USE_DATARAM == 0 )
     static_assert( ((sizeof(xt_internal_data_t) & (XCHAL_DCACHE_LINESIZE - 1)) == 0),
             "Incorrect xt_internal_data padding" );
+#endif
 
     #define portGET_CORE_ID()           xthal_get_coreid()
     #define portYIELD_CORE(xCoreID)     xthal_ipi_trigger(xCoreID)
@@ -348,16 +353,24 @@ BaseType_t xPortRaisePrivilege( void );
     #define portGET_TASK_LOCK()        xt_mutex_lock(&_xt_mutex_task)
     #define portRELEASE_TASK_LOCK()    xt_mutex_unlock(&_xt_mutex_task)
 
-    // uxCriticalNestings maintained within per-core data
+    // Per-core data struct can be kept in dataram or indexed in shared sysram
+    #if ( XT_USE_DATARAM )
+    extern xt_internal_data_t _xt_intdata;
+    #define _XT_INTDATA(...)            (_xt_intdata)
+    #else
     extern xt_internal_data_t _xt_intdata[ configNUMBER_OF_CORES ];
-    #define portGET_CRITICAL_NESTING_COUNT()          ( _xt_intdata[ portGET_CORE_ID() ].uxCriticalNestings )
-    #define portSET_CRITICAL_NESTING_COUNT( x )       ( (_xt_intdata[ portGET_CORE_ID() ].uxCriticalNestings) = ( x ) )
-    #define portINCREMENT_CRITICAL_NESTING_COUNT()    ( (_xt_intdata[ portGET_CORE_ID() ].uxCriticalNestings) ++ )
-    #define portDECREMENT_CRITICAL_NESTING_COUNT()    ( (_xt_intdata[ portGET_CORE_ID() ].uxCriticalNestings) -- )
+    #define _XT_INTDATA(c)              (_xt_intdata[(c)])
+    #endif
+
+    // uxCriticalNestings maintained within per-core data
+    #define portGET_CRITICAL_NESTING_COUNT()          ( _XT_INTDATA( portGET_CORE_ID() ).uxCriticalNestings )
+    #define portSET_CRITICAL_NESTING_COUNT( x )       ( (_XT_INTDATA( portGET_CORE_ID() ).uxCriticalNestings) = ( x ) )
+    #define portINCREMENT_CRITICAL_NESTING_COUNT()    ( (_XT_INTDATA( portGET_CORE_ID() ).uxCriticalNestings) ++ )
+    #define portDECREMENT_CRITICAL_NESTING_COUNT()    ( (_XT_INTDATA( portGET_CORE_ID() ).uxCriticalNestings) -- )
 
     // port_interruptNesting maintained within per-core data
-    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( (_xt_intdata[ portGET_CORE_ID() ].port_interruptNesting) ++ )
-    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( (_xt_intdata[ portGET_CORE_ID() ].port_interruptNesting) -- )
+    #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( (_XT_INTDATA( portGET_CORE_ID() ).port_interruptNesting) ++ )
+    #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( (_XT_INTDATA( portGET_CORE_ID() ).port_interruptNesting) -- )
 
     extern UBaseType_t vTaskEnterCriticalFromISR(void);
     extern void vTaskExitCriticalFromISR(UBaseType_t uxSavedInterruptStatus);

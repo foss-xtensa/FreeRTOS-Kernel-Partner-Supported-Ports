@@ -303,7 +303,7 @@ _reclaim_reent(struct _reent * ptr)
 struct _reent *
 __getreent(void)
 {
-    xt_internal_data_t *xt_intdata_p = &(_xt_intdata[portGET_CORE_ID()]);
+    xt_internal_data_t *xt_intdata_p = &(_XT_INTDATA(portGET_CORE_ID()));
     #if ( configUSE_C_RUNTIME_TLS_SUPPORT == 1 )
     if (xt_intdata_p->xt_reent_p) {
         return xt_intdata_p->xt_reent_p;

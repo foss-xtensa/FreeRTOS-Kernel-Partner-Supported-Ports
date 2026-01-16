@@ -102,9 +102,13 @@ uint32_t port_xSchedulerRunning = 0U;
 #if (defined __DYNAMIC_REENT__)
   #if ( configNUMBER_OF_CORES > 1 )
     #if XSHAL_CLIB == XTHAL_CLIB_XCLIB
-    #define _XT_INTDATA_REENT_INIT(x)   NULL, { 0 },
+    #define _XT_INTDATA_REENT_INIT(x)   NULL, NULL, { 0 },
     #elif XSHAL_CLIB == XTHAL_CLIB_NEWLIB
-    #define _XT_INTDATA_REENT_INIT(x)   NULL, _REENT_INIT(_xt_intdata[(x)].xt_reent),
+      #if ( XT_USE_DATARAM )
+      #define _XT_INTDATA_REENT_INIT(x)   NULL, NULL, _REENT_INIT(_xt_intdata.xt_reent),
+      #else
+      #define _XT_INTDATA_REENT_INIT(x)   NULL, NULL, _REENT_INIT(_xt_intdata[(x)].xt_reent),
+      #endif
     #else
     #error Specified CLIB not reentrant
     #endif
@@ -128,8 +132,17 @@ xt_internal_data_t _xt_intdata = {
 
 #else
 
-// Interrupt variables and uxCriticalNestings contained within this
-// per-core data structure.  Structure size is padded to cache line.
+#if ( XT_USE_DATARAM )
+
+// Per-core struct contains interrupt variables and uxCriticalNestings
+// When in dataram, structure is in per-core memory and not padded.
+xt_internal_data_t XT_DATARAM_ATTR
+_xt_intdata = { 0, 0, 0, 0, 0xffffffff, 0, _XT_INTDATA_REENT_INIT(0) };
+
+#else       // XT_USE_DATARAM
+
+// Per-core struct contains interrupt variables and uxCriticalNestings
+// When in shared sysram, structure is padded to cache line and indexed per-core
 xt_internal_data_t __attribute__((aligned (XCHAL_DCACHE_LINESIZE)))
 _xt_intdata[ configNUMBER_OF_CORES ] = {
     { 0, 0, 0, 0, 0xffffffff, 0, _XT_INTDATA_REENT_INIT(0) { 0 } },
@@ -155,6 +168,8 @@ _xt_intdata[ configNUMBER_OF_CORES ] = {
     { 0, 0, 0, 0, 0xffffffff, 0, _XT_INTDATA_REENT_INIT(7) { 0 } },
 #endif
 };
+
+#endif      // XT_USE_DATARAM
 
 PRIVILEGED_DATA xt_mutex __attribute__((aligned (XCHAL_DCACHE_LINESIZE))) _xt_mutex_ISR;
 PRIVILEGED_DATA xt_mutex __attribute__((aligned (XCHAL_DCACHE_LINESIZE))) _xt_mutex_task;
@@ -194,7 +209,7 @@ xt_mutex_lock(xt_mutex_p pmtx)
             int32_t ret;
 
             do {
-#if 0
+#if 0   // TODO: SMP optimization causing failures with -flto; disable for now
 //#if XCHAL_HAVE_EXCLUSIVE
                 /* Streamline implementation for SMP case.
                  * %0 : ret
@@ -487,7 +502,7 @@ BaseType_t xPortStartScheduler( void )
         }
     } else {
         // Used by xt-gdb thread-aware debug support
-        _xt_intdata[my_core].xt_core_init_done = 1;
+        _XT_INTDATA(my_core).xt_core_init_done = 1;
     }
     #endif
 
