@@ -405,6 +405,7 @@ BaseType_t xPortRaisePrivilege( void );
     #define portRELEASE_TASK_LOCK()
 
     extern xt_internal_data_t _xt_intdata;
+    #define _XT_INTDATA(...)                          ( _xt_intdata )
     #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( _xt_intdata.port_interruptNesting++ )
     #define portDECREMENT_INTERRUPT_NESTING_COUNT()   ( _xt_intdata.port_interruptNesting-- )
 
