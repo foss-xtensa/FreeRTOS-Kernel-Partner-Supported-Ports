@@ -286,6 +286,9 @@ BaseType_t xPortRaisePrivilege( void );
 #elif ( configTICK_CORE < 0 || configTICK_CORE >= configNUMBER_OF_CORES )
     #error "Invalid tick core specified in config!"
 #endif
+#if ( configUSE_CORE_AFFINITY == 1 )
+    #define configTIMER_SERVICE_TASK_CORE_AFFINITY  ( 1 << configTICK_CORE )
+#endif
 
     /* The Xtensa SMP port maintains an array of xt_internal_data_t structures,
      * which are padded to a cache line boundary.  This prevents cache thrashing

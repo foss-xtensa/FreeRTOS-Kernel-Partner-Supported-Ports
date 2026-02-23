@@ -81,6 +81,12 @@ extern void _xt_task_start( void );
 extern void _xt_task_start_user( void );
 #endif
 
+#if ( configNUMBER_OF_CORES > 1 )
+extern uint32_t _bss_table_start;
+extern uint32_t _bss_table_end;
+extern void __bss_init(uint32_t * table_start, uint32_t * table_end);
+#endif
+
 // Timer tick interval in cycles.
 static uint32_t xt_tick_cycles;
 TickType_t xMaxSuppressedTicks;
@@ -505,6 +511,10 @@ BaseType_t xPortStartScheduler( void )
     }
     #endif
 
+    // Spill and invalidate prior register windows so that solicited
+    // restores do not inadvertently pick up starting register window
+    xthal_window_spill();
+
     // Cannot be directly called from C; never returns
     __asm__ volatile ("call0    _frxt_dispatch\n");
 
@@ -528,8 +538,8 @@ void vPortEndScheduler( void )
 // core 0 calls main(); other cores enter the scheduler directly via _start().
 //
 // Since SMP requires coherent shared memory, core 0 must do the following:
-// 1) initializing BSS, and 
-// 2) calling __clibrary_init()
+// 1) initialize BSS in shared memories, and 
+// 2) call __clibrary_init()
 //
 // Nonzero cores will skip these steps and wait here until core 0 calls
 // xPortStartScheduler(), ensuring all cores are synchronized, regardless of
@@ -548,9 +558,14 @@ void __memmap_init(void)
             // Busy-wait
         }
 
-        // By this point core 0 will have initialized BSS
+        // By this point core 0 will have initialized BSS in shared memory
+        // but we still need to initialize per-core BSS segments
+        __bss_init(&_bss_table_start, &_bss_table_end);
+
         (void) xPortStartScheduler();
+
         // Does not return here
+        configASSERT( 0 );
     }
 }
 #endif // ( configNUMBER_OF_CORES > 1 )
