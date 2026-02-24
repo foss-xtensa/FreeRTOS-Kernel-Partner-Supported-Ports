@@ -422,6 +422,7 @@ BaseType_t xPortRaisePrivilege( void );
 #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS() do {} while (0)
 
 /* Kernel utilities. */
+BaseType_t xPortIsInsideInterrupt( void );
 void vPortYield( void );
 void vPortYieldFromInt( void );
 void _frxt_setup_switch( void );
