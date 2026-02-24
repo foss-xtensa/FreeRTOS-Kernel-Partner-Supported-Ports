@@ -351,25 +351,25 @@ BaseType_t xPortRaisePrivilege( void );
     extern int32_t xt_mutex_lock(xt_mutex_p pmtx);
     extern int32_t xt_mutex_unlock(xt_mutex_p pmtx);
 
-    #define portGET_ISR_LOCK()         xt_mutex_lock(&_xt_mutex_ISR)
-    #define portRELEASE_ISR_LOCK()     xt_mutex_unlock(&_xt_mutex_ISR)
-    #define portGET_TASK_LOCK()        xt_mutex_lock(&_xt_mutex_task)
-    #define portRELEASE_TASK_LOCK()    xt_mutex_unlock(&_xt_mutex_task)
+    #define portGET_ISR_LOCK( xCoreID )         xt_mutex_lock(&_xt_mutex_ISR)
+    #define portRELEASE_ISR_LOCK( xCoreID )     xt_mutex_unlock(&_xt_mutex_ISR)
+    #define portGET_TASK_LOCK( xCoreID )        xt_mutex_lock(&_xt_mutex_task)
+    #define portRELEASE_TASK_LOCK( xCoreID )    xt_mutex_unlock(&_xt_mutex_task)
 
     // Per-core data struct can be kept in dataram or indexed in shared sysram
     #if ( XT_USE_DATARAM )
     extern xt_internal_data_t _xt_intdata;
-    #define _XT_INTDATA(...)            (_xt_intdata)
+    #define _XT_INTDATA(...)                    (_xt_intdata)
     #else
     extern xt_internal_data_t _xt_intdata[ configNUMBER_OF_CORES ];
-    #define _XT_INTDATA(c)              (_xt_intdata[(c)])
+    #define _XT_INTDATA(c)                      (_xt_intdata[(c)])
     #endif
 
     // uxCriticalNestings maintained within per-core data
-    #define portGET_CRITICAL_NESTING_COUNT()          ( _XT_INTDATA( portGET_CORE_ID() ).uxCriticalNestings )
-    #define portSET_CRITICAL_NESTING_COUNT( x )       ( (_XT_INTDATA( portGET_CORE_ID() ).uxCriticalNestings) = ( x ) )
-    #define portINCREMENT_CRITICAL_NESTING_COUNT()    ( (_XT_INTDATA( portGET_CORE_ID() ).uxCriticalNestings) ++ )
-    #define portDECREMENT_CRITICAL_NESTING_COUNT()    ( (_XT_INTDATA( portGET_CORE_ID() ).uxCriticalNestings) -- )
+    #define portGET_CRITICAL_NESTING_COUNT( xCoreID )          ( _XT_INTDATA( xCoreID ).uxCriticalNestings )
+    #define portSET_CRITICAL_NESTING_COUNT( xCoreID, x )       ( (_XT_INTDATA( xCoreID ).uxCriticalNestings) = ( x ) )
+    #define portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID )    ( (_XT_INTDATA( xCoreID ).uxCriticalNestings) ++ )
+    #define portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID )    ( (_XT_INTDATA( xCoreID ).uxCriticalNestings) -- )
 
     // port_interruptNesting maintained within per-core data
     #define portINCREMENT_INTERRUPT_NESTING_COUNT()   ( (_XT_INTDATA( portGET_CORE_ID() ).port_interruptNesting) ++ )

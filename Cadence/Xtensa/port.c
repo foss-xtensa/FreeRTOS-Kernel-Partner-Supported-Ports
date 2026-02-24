@@ -524,7 +524,7 @@ BaseType_t xPortStartScheduler( void )
 
 BaseType_t xPortIsInsideInterrupt( void )
 {
-    return port_interruptNesting > 0 ? pdTRUE : pdFALSE;
+    return (_XT_INTDATA(portGET_CORE_ID()).port_interruptNesting) > 0 ? pdTRUE : pdFALSE;
 }
 
 //-----------------------------------------------------------------------------
