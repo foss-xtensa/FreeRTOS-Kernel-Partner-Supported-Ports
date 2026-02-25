@@ -398,14 +398,14 @@ BaseType_t xPortRaisePrivilege( void );
 
     static_assert( offsetof(xt_internal_data_t, port_interruptNesting) == 0, "Bad xt_internal_data field order" );
 
-    #define portGET_CORE_ID()           0
-    #define portYIELD_CORE(xCoreID)     UNUSED(xCoreID)
-    #define portCRITICAL_NESTING_IN_TCB 1   // Nesting managed by FreeRTOS fine for 1 core
+    #define portGET_CORE_ID()                         0
+    #define portYIELD_CORE( xCoreID )                 UNUSED( xCoreID )
+    #define portCRITICAL_NESTING_IN_TCB               1   // Nesting managed by FreeRTOS fine for 1 core
 
-    #define portGET_ISR_LOCK()
-    #define portRELEASE_ISR_LOCK()
-    #define portGET_TASK_LOCK()
-    #define portRELEASE_TASK_LOCK()
+    #define portGET_ISR_LOCK( xCoreID )
+    #define portRELEASE_ISR_LOCK( xCoreID )
+    #define portGET_TASK_LOCK( xCoreID )
+    #define portRELEASE_TASK_LOCK( xCoreID )
 
     extern xt_internal_data_t _xt_intdata;
     #define _XT_INTDATA(...)                          ( _xt_intdata )
