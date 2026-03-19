@@ -451,6 +451,11 @@ BaseType_t xPortStartScheduler( void )
     return pdFALSE;
 }
 
+BaseType_t xPortIsInsideInterrupt( void )
+{
+    return port_interruptNesting > 0 ? pdTRUE : pdFALSE;
+}
+
 //-----------------------------------------------------------------------------
 // Stop the scheduler.
 //-----------------------------------------------------------------------------
