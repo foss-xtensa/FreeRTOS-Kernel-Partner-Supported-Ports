@@ -279,7 +279,7 @@ typedef enum {
 
 volatile xt_smp_sync_t xt_smp_sync = XT_SMP_SYNC_INITVAL;
 
-#endif // ( configNUMBER_OF_CORES == 1 )
+#endif // ( configNUMBER_OF_CORES != 1 )
 
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE
 
@@ -505,10 +505,9 @@ BaseType_t xPortStartScheduler( void )
         if (xthal_run_cores(XTSUB_RUN_ALL_CORES)) {
             return pdFALSE;
         }
-    } else {
-        // Used by xt-gdb thread-aware debug support
-        _XT_INTDATA(my_core).xt_core_init_done = 1;
     }
+    // Used by xt-gdb thread-aware debug support
+    _XT_INTDATA(my_core).xt_core_init_done = 1;
     #endif
 
     // Spill and invalidate prior register windows so that solicited
