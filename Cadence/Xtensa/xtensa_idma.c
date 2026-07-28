@@ -187,7 +187,7 @@ idma_thread_unblock(void * thread)
             }
         }
         configASSERT (i < MAX_THREADS);
-        xSemaphoreGive(xt_idma_buf_info[i].sem_handle);
+        xSemaphoreGiveFromISR(xt_idma_buf_info[i].sem_handle, NULL);
     }
 }
 
