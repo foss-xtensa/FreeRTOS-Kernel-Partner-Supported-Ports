@@ -1,6 +1,7 @@
 Notes for Version DEVL
 ----------------------
 - FreeRTOS SMP fix for display issue with xt-gdb thread-aware debug.
+- Fix possible race condition during IDMA completion processing.
 
 
 Notes for Version 3.13
